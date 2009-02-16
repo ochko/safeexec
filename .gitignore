@@ -1,0 +1,4 @@
+*.o
+safeexec
+chroot/
+tests/*
