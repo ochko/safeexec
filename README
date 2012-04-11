@@ -1,2 +1,68 @@
-This is safe executor extends mooshak's SafeExec by adding chroot feature.
+safeexec (safe execution environment)
+A general-purpose lightweight sandbox for safely executing user programs
 
+Based on Mooshak safeexec (http://mooshak.dcc.fc.up.pt/)
+niceness by http://github.com/ochko/safeexec
+this version by http://github.com/daveagp
+
+safeexec provides a sandbox environment which prevents
+malicious users from causing trouble, and user mistakes from blowing up
+your server. However, running code on your server should be taken at 
+__your own risk__. 
+
+You should take these additional precautions:
+- use file system permissions to remove access for 'other' users
+- this code doesn't block network access. Use iptables to do this, e.g.:
+   /sbin/iptables -A OUTPUT -m owner --gid-owner 1000 -j DROP
+- check whether safeexec default gid (1000)/uids (10000-42768) are in use!
+
+The general plan:
+- fork into two processes
+- safeexec should have its setuid bit on, and uid root
+- one fork will be a supervisor running as root
+- other fork runs program as unprivileged user, with rlimits & nice
+- supervisor will measure total memory by looking in /proc/
+- wall clock limit enforced with alarm() & signal()
+- return EXIT_SUCCESS (0) if all went ok, EXIT_FAILURE otherwise
+
+Standard input to safeexec is passed on to the exec'd process.
+
+The non-supervisor user number is determined by the supervisor process:
+
+  <non-supervisor uid #> = 10000 + <supervisor pid #>
+
+or, you can replace 10000 with something else using uidplus.
+Since pids are unique, so are the resulting uids.
+  (Sanity check: max value of pids is in /proc/sys/kernel/pid_max)
+Among other things, this should prevent simultaneous safeexec'ed
+programs from kill()ing each other, which they could do if they had
+the same user id.
+
+INSTALLATION, EXAMPLE
+
+make amonkeyoutofme (requires sudo access)
+
+./safeexec (displays full list of options)
+
+./safeexec --memory 50000 --exec hello-world 
+(run the executable hello-world with a memory limit of 50000k)
+
+USAGE NOTES AND TROUBLESHOOTING
+
+Chroot is powerful stuff: it makes a given directory (say, /jail)
+appear to be the root directory of the file system, as far as 
+the child process can see. However, the jail directory might
+need to be given further files, in order for the child process
+to operate correctly. For example, a Python3 jail needs to include
+some unexpected things like /lib/libcrypt-2.5.so.
+
+Make sure that you set the file and memory limits big enough that
+your language can load. Python can give you all manner of strange 
+errors if it doesn't get enough memory. 
+
+PARANOID DISCLAIMER
+
+You can get more fine-grained supervision if you ptrace, which
+interrupts every system call (at a cost of more overhead). Use
+a VM if you are more paranoid. Use separate machines if you want
+to avoid timing attacks.
