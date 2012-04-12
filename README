@@ -11,10 +11,14 @@ your server. However, running code on your server should be taken at
 __your own risk__. 
 
 You should take these additional precautions:
-- use file system permissions to remove access for 'other' users
+- check whether safeexec default gid (1000)/uids (10000-42768) are in use!
 - this code doesn't block network access. Use iptables to do this, e.g.:
    /sbin/iptables -A OUTPUT -m owner --gid-owner 1000 -j DROP
-- check whether safeexec default gid (1000)/uids (10000-42768) are in use!
+- the max number of file handles (nfile) needs to be nonzero in order to
+  read libraries, but even if the maximum file size (fsize) is 0, the code
+  can go around creating size-0 files. Use file permissions to avoid this,
+  and to avoid reads as well. Chroot can limit how much of a "file system"
+  they can see at all.
 
 The general plan:
 - fork into two processes

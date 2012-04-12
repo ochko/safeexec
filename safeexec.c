@@ -46,12 +46,12 @@ struct config
   rlim_t nproc;
   rlim_t clock;
 
+  rlim_t nfile;
+  int niceness;
+
+  gid_t gid;
   int uidplus;
   uid_t theuid;
-
-  rlim_t nfile;
-  gid_t gid;
-  int niceness;
 
   char *report_file;
   char *chroot_dir;
@@ -60,10 +60,11 @@ struct config
 };
 
 
-struct config profile = { 10, 32768, 0, 8192, 8192, 0, 60,
-			  10000, 1000,
-			  1000, 1000, 16, 
+struct config profile = { 10, 32768, 0, 8192, 0, 0, 60,
+			  512, 16, 
+			  1000, 10000, 0,
 			  NULL, NULL, NULL, NULL };
+
 struct config *pdefault = &profile;
 
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
@@ -473,8 +474,7 @@ int main (int argc, char **argv, char **envp)
     setlimit (RLIMIT_NPROC, profile.nproc + 1);  /* 1 required by setuid */
     
     if (profile.chroot_dir != NULL && 0 != chdir(profile.chroot_dir)) {
-      printstats ("Could not chdir to [%s] while in [%s]\n", profile.chroot_dir, getcwd(NULL, 0));
-      error ("Cannot change to chroot dir");
+      error ("Could not chdir to chroot dir [%s] while in [%s]\n", profile.chroot_dir, getcwd(NULL, 0));
       kill (getpid (), SIGPIPE);
     }
     
