@@ -70,3 +70,15 @@ You can get more fine-grained supervision if you ptrace, which
 interrupts every system call (at a cost of more overhead). Use
 a VM if you are more paranoid. Use separate machines if you want
 to avoid timing attacks.
+
+TODO
+
+Linux provides, in principle, two ways to measure the time used
+by a process. According to "Security of Programming Contest Systems"
+by Michal Fori\v{s}ek, only one of these is suitable. It seems
+we should use prctl() to change
+PR_SET_TIMING
+to
+PR_TIMING_TIMESTAMP
+but, this is apparently just defined, and not yet implemented, in
+linux.
