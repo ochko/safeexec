@@ -435,7 +435,7 @@ int main (int argc, char **argv, char **envp)
     if (strcmp(profile.env_vars, "PY") == 0) { 
       /* shorthand for needed Python environment variables, assuming that
 	 the necessary executables, libraries, etc. are in the root of jail */
-      char* xnewenvp[] = { "PYTHONIOENCODING=utf_8", "PYTHONHOME=/", NULL };
+      char* xnewenvp[] = { "PYTHONIOENCODING=utf_8", "PYTHONHOME=/", "PYTHONPATH=/static", NULL };
       envp = xnewenvp;
     }
     else {
