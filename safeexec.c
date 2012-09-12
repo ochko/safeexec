@@ -12,6 +12,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <grp.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -495,6 +496,9 @@ int main (int argc, char **argv, char **envp)
     
     if (setgid (profile.gid) < 0 || getgid () != profile.gid || profile.gid == 0)
       error ("setgid failed\n");
+    
+    if (setgroups (0, NULL) < 0 || getgroups (0, NULL) != 0)
+      error ("setgroups failed\n");
     
     if (setuid (profile.theuid) < 0 || getuid() != profile.theuid || profile.theuid == 0)
       error ("setuid failed\n");
