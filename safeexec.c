@@ -4,8 +4,6 @@
  *   we use stdin and stdout to passing and receiving information to
  *   the program we are about to execute, and report statistics on
  *   FILE *redirect
- *
- * Please check out #ifdef LINUX_HACK
  */
 
 #define _BSD_SOURCE             /* to include wait4 function prototype */
@@ -29,6 +27,12 @@
 #include <time.h>
 #include <stdarg.h>
 #include <time.h>
+#include <paths.h>
+#include <limits.h>
+#include <kvm.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
 
 #include "safeexec.h"
 #include "error.h"
@@ -46,6 +50,8 @@
 
 struct config profile = { 10, 32768, 0, 8192, 8192, 0, 60, 500, 65535 };
 struct config *pdefault = &profile;
+
+static kvm_t *kd;
 
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
@@ -158,58 +164,25 @@ void msleep (int ms)
 
 int memusage (pid_t pid)
 {
-  char a[SIZE], *p, *q;
-  int data, stack;
-  int n, v, fd;
+  struct kinfo_proc *kp;
 
-  p = a;
-  sprintf (p, "/proc/%d/status", pid);
-  fd = open (p, O_RDONLY);
-  if (fd < 0){
-    if (errno == ENOENT){
-      return 0;
-    } else {
-      error (NULL);
-    }
+  int cnt = -1;
+
+  kp = kvm_getprocs(kd, KERN_PROC_PID, pid, &cnt);
+  if ((kp == NULL && cnt > 0) || (kp != NULL && cnt < 0))
+    error("%s", kvm_geterr(kd));
+  if (cnt == 1) {
+    // fprintf(stdout, "ru_maxrss: %d\n", kp->ki_rusage.ru_maxrss);
+    return kp->ki_rusage.ru_maxrss;
+  }else{
+    error("process not found: %d", cnt);
+    return LARGECONST;
   }
-  do
-    n = read (fd, p, SIZE);
-  while ((n < 0) && (errno == EINTR));
-  if (n < 0)
-    error (NULL);
-  do
-    v = close (fd);
-  while ((v < 0) && (errno == EINTR));
-  if (v < 0)
-    error (NULL);
-
-  data = stack = 0;
-  q = strstr (p, "VmData:");
-  if (q != NULL)
-    {
-      sscanf (q, "%*s %d", &data);
-      q = strstr (q, "VmStk:");
-      if (q != NULL)
-        sscanf (q, "%*s %d\n", &stack);
-    }
-
-  return (data + stack);
 }
 
 void setlimit (int resource, rlim_t n)
 {
   struct rlimit limit;
-
-#ifdef LINUX_HACK
-  /* Linux hack: in freebsd the process will   *
-   * be killed exactly  after n  seconds. In   *
-   * linux the behaviour depends on the kernel *
-   * version (before 2.6 the process is killed *
-   * after n+1 seconds, in 2.6 is after n.     */
-  if (resource == RLIMIT_CPU)
-    if (n > 0)
-      n--;
-#endif
 
   limit.rlim_cur = limit.rlim_max = n;
   if (setrlimit (resource, &limit) < 0)
@@ -391,9 +364,6 @@ void printusage (char **p)
            "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
   fprintf (stderr,
            "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
-#ifdef LINUX_HACK
-  fprintf (stderr, "Compiled with LINUX_HACK for RLIMIT_CPU\n");
-#endif
 }
 
 void wallclock (int v)
@@ -405,8 +375,12 @@ void wallclock (int v)
 }
 
 int main (int argc, char **argv, char **envp)
-{
+{  
+  const char *nlistf, *memf;
+  char errbuf[_POSIX2_LINE_MAX];
   struct rusage usage;
+  memf = _PATH_DEVNULL;
+
   char **p;
   int status, mem;
   int tsource, ttarget;
@@ -526,11 +500,15 @@ int main (int argc, char **argv, char **envp)
           if (getuid () == 0)
             error ("Not changing the uid to an unpriviledged one is a BAD ideia");
 
+          nlistf = NULL;
+          kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf);
+          if (kd == 0)
+            error("%s", errbuf);
+
           mark = OK;
 
           /* Poll at INTERVAL ms and determine the maximum *
            * memory usage,  exit when the child terminates */
-
           mem = 64;
           do
             {
@@ -548,6 +526,8 @@ int main (int argc, char **argv, char **envp)
                 error (NULL);
             }
           while (v == 0);
+
+          kvm_close(kd);
 
           ttarget = time (NULL);
 
