@@ -1,4 +1,5 @@
 *.o
 safeexec
+os-detect
 chroot/
-tests/*
+tests/*.o
