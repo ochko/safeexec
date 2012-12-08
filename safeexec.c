@@ -1,4 +1,4 @@
-/* mooshak safeexec (safe execution environment)
+/* safeexec (safe execution environment)
  *
  * Idea:
  *   we use stdin and stdout to passing and receiving information to
