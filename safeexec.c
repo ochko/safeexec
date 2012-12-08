@@ -9,30 +9,29 @@
 #define _BSD_SOURCE             /* to include wait4 function prototype */
 #define _POSIX_SOURCE           /* to include kill  function prototype */
 
+#include <paths.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <ctype.h>
+#include <sys/stat.h>
 #include <sys/select.h>
 #include <fcntl.h>
 #include <assert.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <signal.h>
+#include <sys/time.h>
+#include <sys/param.h>
+#include <kvm.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <stdarg.h>
-#include <time.h>
-#include <paths.h>
-#include <limits.h>
-#include <kvm.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <sys/user.h>
 
 #include "safeexec.h"
 #include "error.h"
@@ -172,7 +171,7 @@ int memusage (pid_t pid)
   if ((kp == NULL && cnt > 0) || (kp != NULL && cnt < 0))
     error("%s", kvm_geterr(kd));
   if (cnt == 1) {
-    // fprintf(stdout, "ru_maxrss: %d\n", kp->ki_rusage.ru_maxrss);
+    /* fprintf(stdout, "ru_maxrss: %d\n", kp->ki_rusage.ru_maxrss); */
     return kp->ki_rusage.ru_maxrss;
   }else{
     error("process not found: %d", cnt);
