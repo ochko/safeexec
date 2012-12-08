@@ -5,28 +5,30 @@
  *   the program we are about to execute, and report statistics on
  *   FILE *redirect
  *
+ * Please check out #ifdef LINUX_HACK
  */
 
 #define _BSD_SOURCE             /* to include wait4 function prototype */
 #define _POSIX_SOURCE           /* to include kill  function prototype */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <sys/stat.h>
 #include <ctype.h>
+#include <sys/select.h>
 #include <fcntl.h>
 #include <assert.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <signal.h>
 #include <sys/wait.h>
-#include <sys/select.h>
+#include <time.h>
+#include <stdarg.h>
+#include <time.h>
 
 #include "safeexec.h"
 #include "error.h"
@@ -35,6 +37,7 @@
 #define SIGXFSZ         25      /* exceeded file size limit */
 
 #define LARGECONST 4194304
+#define XLARGECONST 2*LARGECONST/* recent version of Java need more memory */
 #define SIZE          8192      /* buffer size for reading /proc/<pid>/status */
 #define INTERVAL        67      /* about 15 times a second                    *
                                  * Is a good idea to use a prime number, as   *
@@ -44,7 +47,7 @@
 struct config profile = { 10, 32768, 0, 8192, 8192, 0, 60, 500, 65535 };
 struct config *pdefault = &profile;
 
-pid_t pid;                      /* is global, because we kill the proccess in alarm handler */
+pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
 int silent = 0;
 char *usage_file = "/dev/null";
@@ -53,47 +56,47 @@ char *chroot_dir = "/tmp";
 char *run_dir = "run";
 
 enum
-{ OK, OLE, MLE, TLE, RTLE, RF, IE };    /* for the output statistics */
+{ OK, OLE, MLE, TLE, RTLE, RF, IE };	/* for the output statistics */
 enum
 {
   PARSE, INPUT1, INPUT16,
   INPUT2, INPUT4, INPUT8,
   ERROR, EXECUTE
-};                              /* for the parsing "finite-state machine" */
+};				/* for the parsing "finite-state machine" */
 
 char *names[] = {
-  "UNKONWN",                    /*  0 */
-  "SIGHUP",                     /*  1 */
-  "SIGINT",                     /*  2 */
-  "SIGQUIT",                    /*  3 */
-  "SIGILL",                     /*  4 */
-  "SIGTRAP",                    /*  5 */
-  "SIGABRT",                    /*  6 */
-  "SIGBUS",                     /*  7 */
-  "SIGFPE",                     /*  8 */
-  "SIGKILL",                    /*  9 */
-  "SIGUSR1",                    /* 10 */
-  "SIGSEGV",                    /* 11 */
-  "SIGUSR2",                    /* 12 */
-  "SIGPIPE",                    /* 13 */
-  "SIGALRM",                    /* 14 */
-  "SIGTERM",                    /* 15 */
-  "SIGSTKFLT",                  /* 16 */
-  "SIGCHLD",                    /* 17 */
-  "SIGCONT",                    /* 18 */
-  "SIGSTOP",                    /* 19 */
-  "SIGTSTP",                    /* 20 */
-  "SIGTTIN",                    /* 21 */
-  "SIGTTOU",                    /* 22 */
-  "SIGURG",                     /* 23 */
-  "SIGXCPU",                    /* 24 */
-  "SIGXFSZ",                    /* 25 */
-  "SIGVTALRM",                  /* 26 */
-  "SIGPROF",                    /* 27 */
-  "SIGWINCH",                   /* 28 */
-  "SIGIO",                      /* 29 */
-  "SIGPWR",                     /* 30 */
-  "SIGSYS",                     /* 31 */
+  "UNKONWN",      /*  0 */
+  "SIGHUP",       /*  1 */
+  "SIGINT",       /*  2 */
+  "SIGQUIT",      /*  3 */
+  "SIGILL",       /*  4 */
+  "SIGTRAP",      /*  5 */
+  "SIGABRT",      /*  6 */
+  "SIGBUS",       /*  7 */
+  "SIGFPE",       /*  8 */
+  "SIGKILL",      /*  9 */
+  "SIGUSR1",      /* 10 */
+  "SIGSEGV",      /* 11 */
+  "SIGUSR2",      /* 12 */
+  "SIGPIPE",      /* 13 */
+  "SIGALRM",      /* 14 */
+  "SIGTERM",      /* 15 */
+  "SIGSTKFLT",    /* 16 */
+  "SIGCHLD",      /* 17 */
+  "SIGCONT",      /* 18 */
+  "SIGSTOP",      /* 19 */
+  "SIGTSTP",      /* 20 */
+  "SIGTTIN",      /* 21 */
+  "SIGTTOU",      /* 22 */
+  "SIGURG",       /* 23 */
+  "SIGXCPU",      /* 24 */
+  "SIGXFSZ",      /* 25 */
+  "SIGVTALRM",    /* 26 */
+  "SIGPROF",      /* 27 */
+  "SIGWINCH",     /* 28 */
+  "SIGIO",        /* 29 */
+  "SIGPWR",       /* 30 */
+  "SIGSYS",       /* 31 */
 };
 
 void printstats (const char *format, ...)
@@ -197,6 +200,17 @@ void setlimit (int resource, rlim_t n)
 {
   struct rlimit limit;
 
+#ifdef LINUX_HACK
+  /* Linux hack: in freebsd the process will   *
+   * be killed exactly  after n  seconds. In   *
+   * linux the behaviour depends on the kernel *
+   * version (before 2.6 the process is killed *
+   * after n+1 seconds, in 2.6 is after n.     */
+  if (resource == RLIMIT_CPU)
+    if (n > 0)
+      n--;
+#endif
+
   limit.rlim_cur = limit.rlim_max = n;
   if (setrlimit (resource, &limit) < 0)
     error (NULL);
@@ -207,8 +221,8 @@ void validate (void)
 {
   if (profile.cpu == 0)
     error ("Cpu time must be greater than zero");
-  if (profile.memory >= LARGECONST)
-    error ("Memory limit must be smaller than %u", LARGECONST);
+  if (profile.memory >= XLARGECONST)
+    error ("Memory limit must be smaller than %u", XLARGECONST);
   if (profile.core >= LARGECONST)
     error ("Core limit must be smaller than %u", LARGECONST);
   if (profile.stack >= LARGECONST)
@@ -377,6 +391,9 @@ void printusage (char **p)
            "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
   fprintf (stderr,
            "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
+#ifdef LINUX_HACK
+  fprintf (stderr, "Compiled with LINUX_HACK for RLIMIT_CPU\n");
+#endif
 }
 
 void wallclock (int v)
@@ -407,12 +424,29 @@ int main (int argc, char **argv, char **envp)
     }
   else
     {
+      /*
+         fprintf (stderr, "profile: \"%s\"\n", limit->name);
+         fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) limit->cpu,
+         (unsigned int) limit->memory);
+         fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) limit->core,
+         (unsigned int) limit->stack);
+         fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) limit->fsize,
+         (unsigned int) limit->nproc);
+         fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) limit->minuid,
+         (unsigned int) limit->maxuid);
+         fprintf (stderr, "  clock=%u\n",
+         (unsigned int) limit->clock);
+       */
+
       /* Still missing: get an unused uid from interval */
       if (profile.minuid != profile.maxuid)
         {
           srand (time (NULL) ^ getpid ());
           profile.minuid += rand () % (profile.maxuid - profile.minuid);
         }
+
+      if (setuid (profile.minuid) < 0)
+        error (NULL);
 
       if (strcmp (usage_file, "/dev/null") != 0)
         {
@@ -421,6 +455,9 @@ int main (int argc, char **argv, char **envp)
           if (redirect == NULL)
             error ("Couldn't open redirection file\n");
         }
+
+      if (getuid () == 0)
+        error ("Not changing the uid to an unpriviledged one is a BAD ideia");
 
       if (signal (SIGALRM, wallclock) == SIG_ERR)
         error ("Couldn't install signal handler");
@@ -573,8 +610,8 @@ int main (int argc, char **argv, char **envp)
             }
           printstats ("elapsed time: %d seconds\n", ttarget - tsource);
           printstats ("memory usage: %d kbytes\n", mem);
-          printstats ("cpu usage: %d miliseconds\n",
-                      miliseconds (&usage.ru_utime));
+          printstats ("cpu usage: %0.3f seconds\n",
+                      (float) miliseconds (&usage.ru_utime) / 1000.0);
         }
     }
   fclose (redirect);
