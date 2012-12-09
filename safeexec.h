@@ -7,6 +7,7 @@ struct config
 {
   rlim_t cpu;
   rlim_t memory;
+  rlim_t aspace;
   rlim_t core;
   rlim_t stack;
   rlim_t fsize;

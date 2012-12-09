@@ -6,48 +6,41 @@
  *   FILE *redirect
  */
 
-#define _BSD_SOURCE             /* to include wait4 function prototype */
-#define _POSIX_SOURCE           /* to include kill  function prototype */
-
-#include <paths.h>
-#include <limits.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <ctype.h>
-#include <sys/stat.h>
 #include <sys/select.h>
-#include <fcntl.h>
-#include <assert.h>
 #include <signal.h>
+#include <time.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <stdarg.h>
+#include <string.h>
+#include <paths.h>
+#include <limits.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <kvm.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/param.h>
-#include <kvm.h>
 #include <sys/sysctl.h>
 #include <sys/user.h>
 #include <sys/resource.h>
-#include <sys/wait.h>
-#include <time.h>
-#include <stdarg.h>
 
 #include "safeexec.h"
 #include "error.h"
 #include "safe.h"
-                                /* Fix for FreeBSD :<       */
-#define SIGXFSZ         25      /* exceeded file size limit */
 
+#define SIGXFSZ         25      /* exceeded file size limit(Fix for FreeBSD)  */
+#define MAXMEM     8388608      /* recent version of Java need more memory    */
+#define INTERVAL        61      /* about 16 times a second                    */
+#define NICE_LEVEL      15
 #define LARGECONST 4194304
-#define XLARGECONST 2*LARGECONST/* recent version of Java need more memory */
-#define SIZE          8192      /* buffer size for reading /proc/<pid>/status */
-#define INTERVAL        67      /* about 15 times a second                    *
-                                 * Is a good idea to use a prime number, as   *
-                                 * the users will not notice it (much)        */
-#define NICE_LEVEL 15
 
-struct config profile = { 10, 32768, 0, 8192, 8192, 0, 60, 500, 65535 };
+struct config profile = { 1, 32768, 0, 0, 8192, 8192, 0, 60, 5000, 65535 };
 struct config *pdefault = &profile;
 
 static kvm_t *kd;
@@ -55,13 +48,20 @@ static kvm_t *kd;
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
 int silent = 0;
-char *usage_file = "/dev/null";
 FILE *redirect;
-char *chroot_dir = "/tmp";
-char *run_dir = "run";
+char *usage_file = "/dev/null";
+char *chroot_dir = NULL;
+char *run_dir = NULL;
 
-enum
-{ OK, OLE, MLE, TLE, RTLE, RF, IE };	/* for the output statistics */
+enum{ 
+  OK,   /* process finished normally	   */
+  OLE,  /* output limit exceeded	   */
+  MLE,  /* memory limit exceeded	   */
+  TLE,  /* time limit exceeded		   */
+  RTLE, /* time limit exceeded(wall clock) */
+  RF,   /* invalid function		   */
+  IE    /* internal error		   */
+};
 enum
 {
   PARSE, INPUT1, INPUT16,
@@ -164,18 +164,16 @@ void msleep (int ms)
 int memusage (pid_t pid)
 {
   struct kinfo_proc *kp;
-
   int cnt = -1;
 
   kp = kvm_getprocs(kd, KERN_PROC_PID, pid, &cnt);
   if ((kp == NULL && cnt > 0) || (kp != NULL && cnt < 0))
     error("%s", kvm_geterr(kd));
+
   if (cnt == 1) {
-    /* fprintf(stdout, "ru_maxrss: %d\n", kp->ki_rusage.ru_maxrss); */
     return kp->ki_rusage.ru_maxrss;
   }else{
-    error("process not found: %d", cnt);
-    return LARGECONST;
+    return -1;
   }
 }
 
@@ -193,8 +191,8 @@ void validate (void)
 {
   if (profile.cpu == 0)
     error ("Cpu time must be greater than zero");
-  if (profile.memory >= XLARGECONST)
-    error ("Memory limit must be smaller than %u", XLARGECONST);
+  if (profile.memory >= MAXMEM)
+    error ("Memory limit must be smaller than %u", MAXMEM);
   if (profile.core >= LARGECONST)
     error ("Core limit must be smaller than %u", LARGECONST);
   if (profile.stack >= LARGECONST)
@@ -246,6 +244,8 @@ char **parse (char **p)
                 input1 = (unsigned int *) &profile.cpu;
               else if (strcmp (*p, "--mem") == 0)
                 input1 = (unsigned int *) &profile.memory;
+              else if (strcmp (*p, "--space") == 0)
+                input1 = (unsigned int *) &profile.aspace;
               else if (strcmp (*p, "--uids") == 0)
                 {
                   input2 = (unsigned int *) &profile.minuid;
@@ -328,7 +328,6 @@ char **parse (char **p)
   else
     {
       assert (state == EXECUTE);
-      validate ();
       return (p);
     }
 }
@@ -341,6 +340,8 @@ void printusage (char **p)
            pdefault->cpu);
   fprintf (stderr, "\t--mem     <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->memory);
+  fprintf (stderr, "\t--space   <kbytes>            Default: %lu kbyte(s)\n",
+           pdefault->aspace);
   fprintf (stderr, "\t--uids    <minuid> <maxuid>   Default: %u-%u\n",
            pdefault->minuid, pdefault->maxuid);
   fprintf (stderr, "\t--minuid  <uid>               Default: %u\n",
@@ -349,20 +350,16 @@ void printusage (char **p)
            pdefault->maxuid);
   fprintf (stderr, "\t--core    <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->core);
-  fprintf (stderr,
-           "\t--nproc   <number>            Default: %lu proccess(es)\n",
+  fprintf (stderr, "\t--nproc   <number>            Default: %lu proccess(es)\n",
            pdefault->nproc);
   fprintf (stderr, "\t--fsize   <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->fsize);
   fprintf (stderr, "\t--stack   <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->stack);
-  fprintf (stderr,
-           "\t--clock   <seconds>           Wall clock timeout (default: %lu)\n",
+  fprintf (stderr, "\t--clock   <seconds>           Wall clock timeout (default: %lu)\n",
            pdefault->clock);
-  fprintf (stderr,
-           "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
-  fprintf (stderr,
-           "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
+  fprintf (stderr, "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
+  fprintf (stderr, "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
 }
 
 void wallclock (int v)
@@ -377,11 +374,10 @@ int main (int argc, char **argv, char **envp)
 {  
   const char *nlistf, *memf;
   char errbuf[_POSIX2_LINE_MAX];
-  struct rusage usage;
-  memf = _PATH_DEVNULL;
+  struct rusage usage;  
 
   char **p;
-  int status, mem;
+  int status, mem, skipped, memused;
   int tsource, ttarget;
   int v;
 
@@ -398,20 +394,18 @@ int main (int argc, char **argv, char **envp)
   else
     {
       /*
-         fprintf (stderr, "profile: \"%s\"\n", limit->name);
-         fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) limit->cpu,
-         (unsigned int) limit->memory);
-         fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) limit->core,
-         (unsigned int) limit->stack);
-         fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) limit->fsize,
-         (unsigned int) limit->nproc);
-         fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) limit->minuid,
-         (unsigned int) limit->maxuid);
-         fprintf (stderr, "  clock=%u\n",
-         (unsigned int) limit->clock);
-       */
+      fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) profile.cpu,
+	       (unsigned int) profile.memory);
+      fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) profile.core,
+	       (unsigned int) profile.stack);
+      fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) profile.fsize,
+	       (unsigned int) profile.nproc);
+      fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) profile.minuid,
+	       (unsigned int) profile.maxuid);
+      fprintf (stderr, "  clock=%u\n", (unsigned int) profile.clock);
+      */
 
-      /* Still missing: get an unused uid from interval */
+      /* Get an unused uid */
       if (profile.minuid != profile.maxuid)
         {
           srand (time (NULL) ^ getpid ());
@@ -443,25 +437,27 @@ int main (int argc, char **argv, char **envp)
         error (NULL);
       if (pid == 0)
         {
-          /* change to chroot dir */
-          if (0 != chdir(chroot_dir))
-            {
-              kill (getpid (), SIGPIPE);
-              error ("Cannot change to chroot dir");
-            }
-
-          /* chroot to judge dir  */
-          if (0 != chroot(chroot_dir))
-            {
-              kill (getpid (), SIGPIPE);
-              error ("Cannot chroot");
-            }
-          /* change to run dir */
-          if (0 != chdir(run_dir))
-            {
-              kill (getpid (), SIGPIPE);
-              error ("Cannot change to rundir");
-            }
+          if (chroot_dir != NULL)
+	    {
+	      if (0 != chdir(chroot_dir))
+		{
+		  kill (getpid (), SIGPIPE);
+		  error ("Can not change to chroot dir");
+		}
+	      if (0 != chroot(chroot_dir))
+		{
+		  kill (getpid (), SIGPIPE);
+		  error ("Can not chroot");
+		}
+	    }
+          if (run_dir != NULL)
+	    {
+	      if (0 != chdir(run_dir))
+		{
+		  kill (getpid (), SIGPIPE);
+		  error ("Cannot change to rundir");
+		}
+	    }
 
           if (setuid (profile.minuid) < 0)
             error (NULL);
@@ -476,13 +472,16 @@ int main (int argc, char **argv, char **envp)
               error (NULL);
             }
 
-          /* Set Address space limit, 1 mbyte tolerancy (librarys also count!) */
-          /*setlimit (RLIMIT_AS, (1024 + limit->memory) * 1024); */
           setlimit (RLIMIT_CORE, profile.core * 1024);
           setlimit (RLIMIT_STACK, profile.stack * 1024);
           setlimit (RLIMIT_FSIZE, profile.fsize * 1024);
           setlimit (RLIMIT_NPROC, profile.nproc);
           setlimit (RLIMIT_CPU, profile.cpu);
+	  
+	  setlimit (RLIMIT_SBSIZE, 0); /* socket buffer size in bytes */
+	  /* Address space(including libraries) limit */ 
+	  if (profile.aspace > 0)
+	      setlimit (RLIMIT_AS, profile.aspace * 1024);
 
           /* Execute the program */
           if (execve (*p, p, envp) < 0)
@@ -500,24 +499,44 @@ int main (int argc, char **argv, char **envp)
             error ("Not changing the uid to an unpriviledged one is a BAD ideia");
 
           nlistf = NULL;
+	  memf = _PATH_DEVNULL;
           kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf);
           if (kd == 0)
             error("%s", errbuf);
 
           mark = OK;
 
-          /* Poll at INTERVAL ms and determine the maximum *
-           * memory usage,  exit when the child terminates */
+          /* Poll every INTERVAL ms and get the maximum   *
+           * memory usage, exit when the child terminates */
           mem = 64;
+	  skipped = 0;
+	  memused = 0;
           do
             {
               msleep (INTERVAL);
-              mem = max (mem, memusage (pid));
+	      memused = memusage (pid);
+	      if (memused > -1)
+		{
+		  mem = max (mem, memused);
+		}
+	      else
+		{ /* Can not read memory usage! */
+		  fprintf(stdout, "skipping");
+		  skipped++;
+		}
+
+	      if (skipped > 10)
+		{ /* process is already finished or something wrong happened */
+                  terminate (pid);
+                  mark = MLE;
+		}
+
               if (mem > profile.memory)
                 {
                   terminate (pid);
                   mark = MLE;
                 }
+
               do
                 v = wait4 (pid, &status, WNOHANG | WUNTRACED, &usage);
               while ((v < 0) && (errno != EINTR));
@@ -570,9 +589,9 @@ int main (int argc, char **argv, char **envp)
 
                   if (mark == TLE)
                     {
-                      /* Adjust the timings... although we know the child   *
-                       * was been killed just in the right time seing 1.990 *
-                       * as TLE when the limit is 2 seconds is anoying      */
+                      /* We know the child has terminated at right time(OS did). *
+                       * But seing 1.990 as TLE while limit 2.0 is confusing.    *
+		       * So here is small adjustment for presentation.           */
                       usage.ru_utime.tv_sec = profile.cpu;
                       usage.ru_utime.tv_usec = 0;
                       printstats ("Time Limit Exceeded\n");
