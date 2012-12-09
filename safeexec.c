@@ -183,7 +183,16 @@ void setlimit (int resource, rlim_t n)
 
   limit.rlim_cur = limit.rlim_max = n;
   if (setrlimit (resource, &limit) < 0)
-    error (NULL);
+    {
+      if (errno == EINTR)
+	{
+	  error ("No permission to raise limit for %d to %d\n", resource, n);
+	}
+      else
+	{
+	  error (NULL);
+	}
+    }
 }
 
 /* Validate the config options, call error () on error */
@@ -413,7 +422,16 @@ int main (int argc, char **argv, char **envp)
         }
 
       if (setuid (profile.minuid) < 0)
-        error (NULL);
+	{
+	  if (errno == EPERM)
+	    {
+	      error ("Couldn't setuid due to permission");
+	    }
+	  else
+	    {
+	      error (NULL);
+	    }
+	}
 
       if (strcmp (usage_file, "/dev/null") != 0)
         {
