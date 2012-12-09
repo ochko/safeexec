@@ -2,4 +2,9 @@
 safeexec
 os-detect
 chroot/
-tests/*.o
+tests/fork
+tests/mle
+tests/ole
+tests/return
+tests/tle
+tests/wtle
