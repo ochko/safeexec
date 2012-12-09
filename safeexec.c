@@ -521,7 +521,6 @@ int main (int argc, char **argv, char **envp)
 		}
 	      else
 		{ /* Can not read memory usage! */
-		  fprintf(stdout, "skipping");
 		  skipped++;
 		}
 
