@@ -11,3 +11,6 @@ tests/wtle
 tests/data
 tests/mem
 tests/stack
+tests/err
+tests/file
+tests/io
