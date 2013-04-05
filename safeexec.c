@@ -449,6 +449,17 @@ int main (int argc, char **argv, char **envp)
           chmod (error_file, 0640);
         }
 
+      if (setgid (profile.minuid) < 0)
+        {
+          if (errno == EPERM)
+            {
+              error ("Couldn't setgid due to permission");
+            }
+          else
+            {
+              error (NULL);
+            }
+        }
       if (setuid (profile.minuid) < 0)
         {
           if (errno == EPERM)
@@ -460,6 +471,7 @@ int main (int argc, char **argv, char **envp)
               error (NULL);
             }
         }
+
 
       if (getuid () == 0)
         error ("Not changing the uid to an unpriviledged one is a BAD ideia");

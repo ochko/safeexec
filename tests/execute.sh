@@ -1,7 +1,8 @@
 #!/bin/sh
 
 gcc -o  err    err.c     -Wall -ansi -pedantic
-gcc -o  file   file.c    -Wall -ansi -pedantic 
+gcc -o  write  write.c   -Wall -ansi -pedantic 
+gcc -o  read   read.c    -Wall -ansi -pedantic 
 gcc -o  fork   fork.c    -Wall -ansi -pedantic 
 gcc -o  io     io.c      -Wall -ansi -pedantic 
 gcc -o  mle    mle.c     -Wall -ansi -pedantic 
@@ -23,14 +24,14 @@ echo "*** Testing Time Limit ***"
 echo "------------------------------"
 
 echo "*** Testing Wall Time Limit ***"
-../safeexec --exec wtle   > /dev/null
+../safeexec --clock 3 --exec wtle   > /dev/null
 echo "------------------------------"
 
 echo "*** Testing Fork ***"
 ../safeexec --exec fork
 echo "------------------------------"
 
-echo "*** Testing IO(setuid) ***"
+echo "*** Testing IO ***"
 echo "100 Coder" | ../safeexec --exec io
 echo "------------------------------"
 
@@ -44,11 +45,18 @@ rm -f err.out
 echo "------------------------------"
 
 echo "*** Testing file writing ***"
-../safeexec --exec file
+../safeexec --exec write
+echo "------------------------------"
+
+echo "*** Testing file reading ***"
+../safeexec --error err.out --exec read
+echo "------------------------------"
+cat err.out
+rm -f err.out
 echo "------------------------------"
 
 echo "*** Testing Exit code ***"
 ../safeexec --exec return > /dev/null
 echo "------------------------------"
 
-rm -f err file fork io mle ole return tle wtle
+rm -f err read write fork io mle ole return tle wtle
