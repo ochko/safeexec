@@ -63,11 +63,11 @@ enum{
   IE    /* internal error		   */
 };
 enum
-{
-  PARSE, INPUT1, INPUT16,
-  INPUT2, INPUT4, INPUT8,
-  ERROR, EXECUTE
-};				/* for the parsing "finite-state machine" */
+  {
+    PARSE, INPUT1, INPUT16,
+    INPUT2, INPUT4, INPUT8,
+    ERROR, EXECUTE
+  };				/* for the parsing "finite-state machine" */
 
 char *names[] = {
   "UNKONWN",      /*  0 */
@@ -185,13 +185,13 @@ void setlimit (int resource, rlim_t n)
   if (setrlimit (resource, &limit) < 0)
     {
       if (errno == EINTR)
-	{
-	  error ("No permission to raise limit for %d to %d\n", resource, n);
-	}
+        {
+          error ("No permission to raise limit for %d to %d\n", resource, n);
+        }
       else
-	{
-	  error (NULL);
-	}
+        {
+          error (NULL);
+        }
     }
 }
 
@@ -246,90 +246,90 @@ char **parse (char **p)
           break;
         switch (state)
           {
-            case PARSE:
-              state = INPUT1;
-              function = *p;
-              if (strcmp (*p, "--cpu") == 0)
-                input1 = (unsigned int *) &profile.cpu;
-              else if (strcmp (*p, "--mem") == 0)
-                input1 = (unsigned int *) &profile.memory;
-              else if (strcmp (*p, "--space") == 0)
-                input1 = (unsigned int *) &profile.aspace;
-              else if (strcmp (*p, "--uids") == 0)
-                {
-                  input2 = (unsigned int *) &profile.minuid;
-                  input1 = (unsigned int *) &profile.maxuid;
-                  state = INPUT2;
-                }
-              else if (strcmp (*p, "--minuid") == 0)
-                input1 = (unsigned int *) &profile.minuid;
-              else if (strcmp (*p, "--maxuid") == 0)
+          case PARSE:
+            state = INPUT1;
+            function = *p;
+            if (strcmp (*p, "--cpu") == 0)
+              input1 = (unsigned int *) &profile.cpu;
+            else if (strcmp (*p, "--mem") == 0)
+              input1 = (unsigned int *) &profile.memory;
+            else if (strcmp (*p, "--space") == 0)
+              input1 = (unsigned int *) &profile.aspace;
+            else if (strcmp (*p, "--uids") == 0)
+              {
+                input2 = (unsigned int *) &profile.minuid;
                 input1 = (unsigned int *) &profile.maxuid;
-              else if (strcmp (*p, "--core") == 0)
-                input1 = (unsigned int *) &profile.core;
-              else if (strcmp (*p, "--nproc") == 0)
-                input1 = (unsigned int *) &profile.nproc;
-              else if (strcmp (*p, "--fsize") == 0)
-                input1 = (unsigned int *) &profile.fsize;
-              else if (strcmp (*p, "--stack") == 0)
-                input1 = (unsigned int *) &profile.stack;
-              else if (strcmp (*p, "--clock") == 0)
-                input1 = (unsigned int *) &profile.clock;
-              else if (strcmp (*p, "--exec") == 0)
-                state = EXECUTE;
-              else if (strcmp (*p, "--usage") == 0)
-                state = INPUT4;
-              else if (strcmp (*p, "--chroot") == 0)
-                state = INPUT8;
-              else if (strcmp (*p, "--rundir") == 0)
-                state = INPUT16;
-              else if (strcmp (*p, "--silent") == 0)
-                {
-                  silent = 1;
-                  state = PARSE;
-                }
-              else
-                {
-                  fprintf (stderr, "error: Invalid option: %s\n", *p);
-                  state = ERROR;
-                }
-              break;
-            case INPUT4:
-              usage_file = *p;
-              state = PARSE;
-              break;
-            case INPUT8:
-              chroot_dir = *p;
-              state = PARSE;
-              break;
-            case INPUT16:
-              run_dir = *p;
-              state = PARSE;
-              break;
-            case INPUT2:
-              if (sscanf (*p, "%u", input2) == 1)
-                state = INPUT1;
-              else
-                {
-                  fprintf (stderr,
-                           "error: Failed to match the first numeric argument for %s\n",
-                           function);
-                  state = ERROR;
-                }
-              break;
-            case INPUT1:
-              if (sscanf (*p, "%u", input1) == 1)
+                state = INPUT2;
+              }
+            else if (strcmp (*p, "--minuid") == 0)
+              input1 = (unsigned int *) &profile.minuid;
+            else if (strcmp (*p, "--maxuid") == 0)
+              input1 = (unsigned int *) &profile.maxuid;
+            else if (strcmp (*p, "--core") == 0)
+              input1 = (unsigned int *) &profile.core;
+            else if (strcmp (*p, "--nproc") == 0)
+              input1 = (unsigned int *) &profile.nproc;
+            else if (strcmp (*p, "--fsize") == 0)
+              input1 = (unsigned int *) &profile.fsize;
+            else if (strcmp (*p, "--stack") == 0)
+              input1 = (unsigned int *) &profile.stack;
+            else if (strcmp (*p, "--clock") == 0)
+              input1 = (unsigned int *) &profile.clock;
+            else if (strcmp (*p, "--exec") == 0)
+              state = EXECUTE;
+            else if (strcmp (*p, "--usage") == 0)
+              state = INPUT4;
+            else if (strcmp (*p, "--chroot") == 0)
+              state = INPUT8;
+            else if (strcmp (*p, "--rundir") == 0)
+              state = INPUT16;
+            else if (strcmp (*p, "--silent") == 0)
+              {
+                silent = 1;
                 state = PARSE;
-              else
-                {
-                  fprintf (stderr,
-                           "error: Failed to match the numeric argument for %s\n",
-                           function);
-                  state = ERROR;
-                }
-              break;
-            default:
-              break;
+              }
+            else
+              {
+                fprintf (stderr, "error: Invalid option: %s\n", *p);
+                state = ERROR;
+              }
+            break;
+          case INPUT4:
+            usage_file = *p;
+            state = PARSE;
+            break;
+          case INPUT8:
+            chroot_dir = *p;
+            state = PARSE;
+            break;
+          case INPUT16:
+            run_dir = *p;
+            state = PARSE;
+            break;
+          case INPUT2:
+            if (sscanf (*p, "%u", input2) == 1)
+              state = INPUT1;
+            else
+              {
+                fprintf (stderr,
+                         "error: Failed to match the first numeric argument for %s\n",
+                         function);
+                state = ERROR;
+              }
+            break;
+          case INPUT1:
+            if (sscanf (*p, "%u", input1) == 1)
+              state = PARSE;
+            else
+              {
+                fprintf (stderr,
+                         "error: Failed to match the numeric argument for %s\n",
+                         function);
+                state = ERROR;
+              }
+            break;
+          default:
+            break;
           }
       }
   if (state == ERROR)
@@ -403,15 +403,15 @@ int main (int argc, char **argv, char **envp)
   else
     {
       /*
-      fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) profile.cpu,
-	       (unsigned int) profile.memory);
-      fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) profile.core,
-	       (unsigned int) profile.stack);
-      fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) profile.fsize,
-	       (unsigned int) profile.nproc);
-      fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) profile.minuid,
-	       (unsigned int) profile.maxuid);
-      fprintf (stderr, "  clock=%u\n", (unsigned int) profile.clock);
+        fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) profile.cpu,
+        (unsigned int) profile.memory);
+        fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) profile.core,
+        (unsigned int) profile.stack);
+        fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) profile.fsize,
+        (unsigned int) profile.nproc);
+        fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) profile.minuid,
+        (unsigned int) profile.maxuid);
+        fprintf (stderr, "  clock=%u\n", (unsigned int) profile.clock);
       */
 
       /* Get an unused uid */
@@ -422,16 +422,16 @@ int main (int argc, char **argv, char **envp)
         }
 
       if (setuid (profile.minuid) < 0)
-	{
-	  if (errno == EPERM)
-	    {
-	      error ("Couldn't setuid due to permission");
-	    }
-	  else
-	    {
-	      error (NULL);
-	    }
-	}
+        {
+          if (errno == EPERM)
+            {
+              error ("Couldn't setuid due to permission");
+            }
+          else
+            {
+              error (NULL);
+            }
+        }
 
       if (strcmp (usage_file, "/dev/null") != 0)
         {
@@ -456,26 +456,26 @@ int main (int argc, char **argv, char **envp)
       if (pid == 0)
         {
           if (chroot_dir != NULL)
-	    {
-	      if (0 != chdir(chroot_dir))
-		{
-		  kill (getpid (), SIGPIPE);
-		  error ("Can not change to chroot dir");
-		}
-	      if (0 != chroot(chroot_dir))
-		{
-		  kill (getpid (), SIGPIPE);
-		  error ("Can not chroot");
-		}
-	    }
+            {
+              if (0 != chdir(chroot_dir))
+                {
+                  kill (getpid (), SIGPIPE);
+                  error ("Can not change to chroot dir");
+                }
+              if (0 != chroot(chroot_dir))
+                {
+                  kill (getpid (), SIGPIPE);
+                  error ("Can not chroot");
+                }
+            }
           if (run_dir != NULL)
-	    {
-	      if (0 != chdir(run_dir))
-		{
-		  kill (getpid (), SIGPIPE);
-		  error ("Cannot change to rundir");
-		}
-	    }
+            {
+              if (0 != chdir(run_dir))
+                {
+                  kill (getpid (), SIGPIPE);
+                  error ("Cannot change to rundir");
+                }
+            }
 
           if (setuid (profile.minuid) < 0)
             error (NULL);
@@ -496,10 +496,10 @@ int main (int argc, char **argv, char **envp)
           setlimit (RLIMIT_NPROC, profile.nproc);
           setlimit (RLIMIT_CPU, profile.cpu);
 	  
-	  setlimit (RLIMIT_SBSIZE, 0); /* socket buffer size in bytes */
-	  /* Address space(including libraries) limit */ 
-	  if (profile.aspace > 0)
-	      setlimit (RLIMIT_AS, profile.aspace * 1024);
+          setlimit (RLIMIT_SBSIZE, 0); /* socket buffer size in bytes */
+          /* Address space(including libraries) limit */ 
+          if (profile.aspace > 0)
+            setlimit (RLIMIT_AS, profile.aspace * 1024);
 
           /* Execute the program */
           if (execve (*p, p, envp) < 0)
@@ -517,7 +517,7 @@ int main (int argc, char **argv, char **envp)
             error ("Not changing the uid to an unpriviledged one is a BAD ideia");
 
           nlistf = NULL;
-	  memf = _PATH_DEVNULL;
+          memf = _PATH_DEVNULL;
           kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf);
           if (kd == 0)
             error("%s", errbuf);
@@ -527,26 +527,26 @@ int main (int argc, char **argv, char **envp)
           /* Poll every INTERVAL ms and get the maximum   *
            * memory usage, exit when the child terminates */
           mem = 64;
-	  skipped = 0;
-	  memused = 0;
+          skipped = 0;
+          memused = 0;
           do
             {
               msleep (INTERVAL);
-	      memused = memusage (pid);
-	      if (memused > -1)
-		{
-		  mem = max (mem, memused);
-		}
-	      else
-		{ /* Can not read memory usage! */
-		  skipped++;
-		}
+              memused = memusage (pid);
+              if (memused > -1)
+                {
+                  mem = max (mem, memused);
+                }
+              else
+                { /* Can not read memory usage! */
+                  skipped++;
+                }
 
-	      if (skipped > 10)
-		{ /* process is already finished or something wrong happened */
+              if (skipped > 10)
+                { /* process is already finished or something wrong happened */
                   terminate (pid);
                   mark = MLE;
-		}
+                }
 
               if (mem > profile.memory)
                 {
@@ -608,7 +608,7 @@ int main (int argc, char **argv, char **envp)
                     {
                       /* We know the child has terminated at right time(OS did). *
                        * But seing 1.990 as TLE while limit 2.0 is confusing.    *
-		       * So here is small adjustment for presentation.           */
+                       * So here is small adjustment for presentation.           */
                       usage.ru_utime.tv_sec = profile.cpu;
                       usage.ru_utime.tv_usec = 0;
                       printstats ("Time Limit Exceeded\n");
