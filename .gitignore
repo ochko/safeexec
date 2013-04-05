@@ -8,3 +8,6 @@ tests/ole
 tests/return
 tests/tle
 tests/wtle
+tests/data
+tests/mem
+tests/stack
