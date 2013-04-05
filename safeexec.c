@@ -49,7 +49,9 @@ pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
 int silent = 0;
 FILE *redirect;
+FILE *junk;
 char *usage_file = "/dev/null";
+char *error_file = "/dev/null";
 char *chroot_dir = NULL;
 char *run_dir = NULL;
 
@@ -66,7 +68,7 @@ enum
   {
     PARSE, INPUT1, INPUT16,
     INPUT2, INPUT4, INPUT8,
-    ERROR, EXECUTE
+    ERROR, EXECUTE, INPUT32
   };				/* for the parsing "finite-state machine" */
 
 char *names[] = {
@@ -283,6 +285,8 @@ char **parse (char **p)
               state = INPUT8;
             else if (strcmp (*p, "--rundir") == 0)
               state = INPUT16;
+            else if (strcmp (*p, "--error") == 0)
+              state = INPUT32;
             else if (strcmp (*p, "--silent") == 0)
               {
                 silent = 1;
@@ -304,6 +308,10 @@ char **parse (char **p)
             break;
           case INPUT16:
             run_dir = *p;
+            state = PARSE;
+            break;
+          case INPUT32:
+            error_file = *p;
             state = PARSE;
             break;
           case INPUT2:
@@ -369,6 +377,7 @@ void printusage (char **p)
            pdefault->clock);
   fprintf (stderr, "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
   fprintf (stderr, "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
+  fprintf (stderr, "\t--error   <path>              Print stderr to file (default: /dev/null)\n");
 }
 
 void wallclock (int v)
@@ -383,7 +392,7 @@ int main (int argc, char **argv, char **envp)
 {  
   const char *nlistf, *memf;
   char errbuf[_POSIX2_LINE_MAX];
-  struct rusage usage;  
+  struct rusage usage;
 
   char **p;
   int status, mem, skipped, memused;
@@ -421,6 +430,25 @@ int main (int argc, char **argv, char **envp)
           profile.minuid += rand () % (profile.maxuid - profile.minuid);
         }
 
+      if (strcmp (usage_file, "/dev/null") != 0)
+        {
+          redirect = fopen (usage_file, "w");
+          chown (usage_file, profile.minuid, getgid());
+          chmod (usage_file, 0640);
+          if (redirect == NULL)
+            error ("Couldn't open usage file\n");
+        }
+
+      /* stderr from user program is junk */
+      junk = fopen (error_file, "w");
+      if (junk == NULL)
+        error ("Couldn't open junk file %s\n", error_file);
+      if (strcmp (error_file, "/dev/null") != 0)
+        {
+          chown (error_file, profile.minuid, getgid());
+          chmod (error_file, 0640);
+        }
+
       if (setuid (profile.minuid) < 0)
         {
           if (errno == EPERM)
@@ -431,14 +459,6 @@ int main (int argc, char **argv, char **envp)
             {
               error (NULL);
             }
-        }
-
-      if (strcmp (usage_file, "/dev/null") != 0)
-        {
-          redirect = fopen (usage_file, "w");
-          chmod (usage_file, 0644);
-          if (redirect == NULL)
-            error ("Couldn't open redirection file\n");
         }
 
       if (getuid () == 0)
@@ -476,6 +496,8 @@ int main (int argc, char **argv, char **envp)
                   error ("Cannot change to rundir");
                 }
             }
+
+          dup2(fileno(junk), fileno(stderr));
 
           if (setuid (profile.minuid) < 0)
             error (NULL);
