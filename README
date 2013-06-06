@@ -1,9 +1,8 @@
 safeexec (safe execution environment)
 A general-purpose lightweight sandbox for safely executing user programs
+https://github.com/cemc/safeexec
 
-Based on Mooshak safeexec (http://mooshak.dcc.fc.up.pt/)
-niceness by http://github.com/ochko/safeexec
-this version by http://github.com/daveagp
+History: see below. License: AGPL 3 (http://www.gnu.org/licenses/agpl.html)
 
 safeexec provides a sandbox environment which prevents
 malicious users from causing trouble, and user mistakes from blowing up
@@ -82,3 +81,22 @@ to
 PR_TIMING_TIMESTAMP
 but, this is apparently just defined, and not yet implemented, in
 linux.
+
+HISTORY
+
+Originally part of Mooshak (http://mooshak.dcc.fc.up.pt/)
+Revised in 2009 by http://github.com/ochko/safeexec
+This version revised in 2011-22 by David Pritchard (daveagp@gmail.com)
+http://github.com/daveagp
+
+Mooshak released the files under "The Artistic License".
+The main changes made to safeexec.c are 
+ - how are uids calculated (pid + a constant)
+   which avoids two different web users getting the same uid
+ - allow setting group id
+ - bugfix: remove all supplemental groups 
+ - command-line argument for niceness
+ - command-line argument for environment variables
+This changed version is released under the GNU Affero
+General Public License, versions 3 or later. See LICENSE or visit:
+http://www.gnu.org/licenses/agpl.html
