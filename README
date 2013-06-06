@@ -11,6 +11,8 @@ __your own risk__.
 
 You should take these additional precautions:
 - check whether safeexec default gid (1000)/uids (10000-42768) are in use!
+- assuming not, you may name the group, but you won't name the users; the 
+  whole user range is treated as "unpriviliged" ("other" for all files)
 - this code doesn't block network access. Use iptables to do this, e.g.:
    /sbin/iptables -A OUTPUT -m owner --gid-owner 1000 -j DROP
 - the max number of file handles (nfile) needs to be nonzero in order to
