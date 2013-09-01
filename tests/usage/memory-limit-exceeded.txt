@@ -1,0 +1,4 @@
+Memory Limit Exceeded
+elapsed time: 0 seconds
+memory usage: 32884 kbytes
+cpu usage: 0.416 seconds

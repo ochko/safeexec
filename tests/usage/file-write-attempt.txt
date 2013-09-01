@@ -1,0 +1,4 @@
+Command exited with non-zero status (1)
+elapsed time: 0 seconds
+memory usage: 64 kbytes
+cpu usage: 0.000 seconds
