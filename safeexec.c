@@ -457,13 +457,13 @@ int main (int argc, char **argv, char **envp)
       error ("Couldn't open redirection file\n");
   }
       
+  profile.theuid = profile.uidplus + getpid();
+
   pid = fork ();
   if (pid < 0)
     error (NULL);
 
   if (pid == 0) { /* FORK: slave process that will run the submitted code */
-
-    profile.theuid = profile.uidplus + getpid();
 
     setlimit (RLIMIT_AS, profile.memory * 1024); 
     setlimit (RLIMIT_DATA, profile.memory * 1024); 
@@ -510,14 +510,15 @@ int main (int argc, char **argv, char **envp)
     /* goodbye process! execve never returns. */
   }
   
-  else { /* FORK: supervisor process */
+  /* FORK: supervisor process */
     
-    if (signal (SIGALRM, wallclock) == SIG_ERR)
-      error ("Couldn't install signal handler");
-    
-    if (alarm (profile.clock) != 0)
-      error ("Couldn't set alarm");
-
+  if (signal (SIGALRM, wallclock) == SIG_ERR)
+    printstats ("Couldn't install signal handler\n");
+  
+  else if (alarm (profile.clock) != 0)
+    printstats ("Couldn't set alarm\n");
+  
+  else {
     mark = OK;
     
     /* Poll at INTERVAL ms and determine the maximum *
@@ -528,16 +529,16 @@ int main (int argc, char **argv, char **envp)
       msleep (INTERVAL);
       mem = max (mem, memusage (pid));
       if (mem > profile.memory) {
-	terminate (pid);
-	mark = MLE;
+        terminate (pid);
+        mark = MLE;
       }
       do
-	v = wait4 (pid, &status, WNOHANG | WUNTRACED, &usage);
+        v = wait4 (pid, &status, WNOHANG | WUNTRACED, &usage);
       while ((v < 0) && (errno != EINTR));
       if (v < 0)
-	error (NULL);
+        error (NULL);
     } while (v == 0);
-
+    
     ttarget = time (NULL);
     
     if (mark == MLE)
@@ -546,67 +547,87 @@ int main (int argc, char **argv, char **envp)
       printstats ("Time Limit Exceeded\n");
     else {
       if (WIFEXITED (status) != 0) {
-	if (WEXITSTATUS (status) != 0) {
-	  if (mark == OK)
-	    mark = RETNZ;
-	  printstats ("Command exited with non-zero status (%d)\n",
-		      WEXITSTATUS (status));
-	}
-	else
-	  printstats ("OK\n");
+        if (WEXITSTATUS (status) != 0) {
+          if (mark == OK)
+            mark = RETNZ;
+          printstats ("Command exited with non-zero status (%d)\n",
+                      WEXITSTATUS (status));
+        }
+        else
+          printstats ("OK\n");
       }
       else {
-	if (WIFSIGNALED (status) != 0) {
-	  /* Was killed for a TLE (or was it an OLE) */
-	  if (WTERMSIG (status) == SIGKILL)
+        if (WIFSIGNALED (status) != 0) {
+          /* Was killed for a TLE (or was it an OLE) */
+          if (WTERMSIG (status) == SIGKILL)
 	    mark = TLE;
-	  else if (WTERMSIG (status) == SIGXFSZ)
-	    mark = OLE;
-	  else if (WTERMSIG (status) == SIGHUP)
-	    mark = RF;
-	  else if (WTERMSIG (status) == SIGPIPE)
-	    mark = IE;
-	  else {
-	    if (mark == OK)
-	      mark = TERM;
-	    printstats ("Command terminated by signal (%d: %s)\n",
-			WTERMSIG (status),
-			name (WTERMSIG (status)));
-	  }
-	}
-	else if (WIFSTOPPED (status) != 0) {
-	  if (mark == OK)
-	    mark = TERM;
-	  printstats ("Command terminated by signal (%d: %s)\n",
-		      WSTOPSIG (status), name (WSTOPSIG (status)));
-	}
-	else
-	  printstats ("OK\n");
-	
-	if (mark == TLE) {
-	  /* Adjust the timings... although we know the child   *
-	   * was been killed just in the right time seeing 1.99 *
-	   * as TLE when the limit is 2 seconds is anoying      */
-	  usage.ru_utime.tv_sec = profile.cpu;
-	  usage.ru_utime.tv_usec = 0;
-	  printstats ("Time Limit Exceeded\n");
-	}
-	else if (mark == OLE)
-	  printstats ("Output Limit Exceeded\n");
-	else if (mark == RTLE)
-	  printstats ("Time Limit Exceeded\n");
-	else if (mark == RF)
-	  printstats ("Invalid Function\n");
-	else if (mark == IE)
-	  printstats ("Internal Error\n");
+          else if (WTERMSIG (status) == SIGXFSZ)
+            mark = OLE;
+          else if (WTERMSIG (status) == SIGHUP)
+            mark = RF;
+          else if (WTERMSIG (status) == SIGPIPE)
+            mark = IE;
+          else {
+            if (mark == OK)
+              mark = TERM;
+            printstats ("Command terminated by signal (%d: %s)\n",
+                        WTERMSIG (status),
+                        name (WTERMSIG (status)));
+          }
+        }
+        else if (WIFSTOPPED (status) != 0) {
+          if (mark == OK)
+            mark = TERM;
+          printstats ("Command terminated by signal (%d: %s)\n",
+                      WSTOPSIG (status), name (WSTOPSIG (status)));
+        }
+        else
+          printstats ("OK\n");
+        
+        if (mark == TLE) {
+          /* Adjust the timings... although we know the child   *
+           * was been killed just in the right time seeing 1.99 *
+           * as TLE when the limit is 2 seconds is anoying      */
+          usage.ru_utime.tv_sec = profile.cpu;
+          usage.ru_utime.tv_usec = 0;
+          printstats ("Time Limit Exceeded\n");
+        }
+        else if (mark == OLE)
+          printstats ("Output Limit Exceeded\n");
+        else if (mark == RTLE)
+          printstats ("Time Limit Exceeded\n");
+        else if (mark == RF)
+          printstats ("Invalid Function\n");
+        else if (mark == IE)
+          printstats ("Internal Error\n");
       }
     }
     printstats ("elapsed time: %d seconds\n", ttarget - tsource);
     if (mem != -1) /* -1: died too fast to measure */
       printstats ("memory usage: %d kbytes\n", mem);
     printstats ("cpu usage: %0.3f seconds\n",
-		(float) milliseconds (&usage.ru_utime) / 1000.0);
-  } /* end of FORK */
+                (float) milliseconds (&usage.ru_utime) / 1000.0);
+  } 
+
+  /* Clean up any orphaned descendant processes. kill everything with the target user id.
+     The only reliable way to do this seems to be kill(-1) from that user.
+     We also have to use setgid to change the euid away from 0. */
+  if (setgid (profile.gid) < 0 || getgid () != profile.gid || profile.gid == 0)
+    printstats ("cleanup setgid failed\n");
+  else if (setgroups (0, NULL) < 0 || getgroups (0, NULL) != 0)
+    printstats ("cleanup setgroups failed\n");
+  else if (setuid (profile.theuid) < 0 || getuid() != profile.theuid || profile.theuid == 0)
+    printstats ("cleanup setuid failed\n");
+  
+  if (getuid() != 0 && getuid() == profile.theuid 
+      && geteuid() != 0 && geteuid() == profile.theuid
+      && getgid() != 0 && getgid() == profile.gid) {
+    kill(-1, SIGKILL);
+  }
+  else {
+    printstats ("not safe to kill: uid %d, euid %d, gid %d, target uid %d, target gid %d\n", 
+                getuid(), geteuid(), getgid(), profile.theuid, profile.gid);
+  }
 
   fclose (redirect);
 
