@@ -61,12 +61,13 @@ struct config
 };
 
 
-struct config profile = { 10, 32768, 0, 8192, 0, 0, 60,
+struct config profile_default
+                      = { 10, 32768, 0, 8192, 0, 0, 60,
 			  512, 16, 
 			  1000, 10000, 0,
 			  NULL, NULL, NULL, NULL };
 
-struct config *pdefault = &profile;
+struct config profile;
 
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
@@ -363,29 +364,29 @@ void printusage (char **p)
   fprintf (stderr, "        **ATTENTION: read the security precautions in README**\n");
   fprintf (stderr, "Available options:\n");
   fprintf (stderr, "  --uidplus      <number>        Default: %u + pid = uid\n",
-	   pdefault->uidplus);
+	   profile_default.uidplus);
   fprintf (stderr, "  --gid          <group id>      Default: %d group id\n",
-	   ((int) pdefault->gid));
+	   ((int) profile_default.gid));
   fprintf (stderr, "  --cpu          <seconds>       Default: %lu seconds cpu time\n",
-	   pdefault->cpu);
+	   profile_default.cpu);
   fprintf (stderr, "  --clock        <seconds>       Default: %lu seconds wall time\n",
-	   pdefault->clock);
+	   profile_default.clock);
   fprintf (stderr, "  --mem          <kbytes>        Default: %lu kbytes total memory\n",
-	   pdefault->memory);
+	   profile_default.memory);
   fprintf (stderr, "  --core         <kbytes>        Default: %lu kbytes max core dump\n",
-	   pdefault->core);
+	   profile_default.core);
   /*  fprintf (stderr, "  --stack        <kbytes>        Default: %lu kbyte(s)\n",
-	   pdefault->stack);
+	   profile_default.stack);
   This is undocumented as it is potentially confusing. It's per-process!
   */
   fprintf (stderr, "  --nproc        <number>        Default: %lu processes\n",
-	   pdefault->nproc);
+	   profile_default.nproc);
   fprintf (stderr, "  --fsize        <kbytes>        Default: %lu max kbytes written by all files\n",
-	   pdefault->fsize);
+	   profile_default.fsize);
   fprintf (stderr, "  --nfile        <number>        Default: %lu max open file pointers\n",
-	   pdefault->nfile);
+	   profile_default.nfile);
   fprintf (stderr, "  --niceness     <number>        Default: %d (19=min priority, 10=max)\n",
-	   pdefault->niceness);
+	   profile_default.niceness);
   fprintf (stderr, "  --chroot_dir   <dir>           Default: NULL (path starting with /)\n");
   fprintf (stderr, "  --exec_dir     <dir>           Default: NULL (relative to chroot_dir)\n");
   fprintf (stderr, "  --env_vars     \"X=Y\\nA=B\", PY  Default: inherit calling\n");
@@ -412,6 +413,8 @@ int main (int argc, char **argv, char **envp)
   int status, mem;
   int tsource, ttarget;
   int v;
+
+  profile = profile_default;
 
   redirect = stderr;
   safe_signal (SIGPIPE, SIG_DFL);
