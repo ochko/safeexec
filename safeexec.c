@@ -76,7 +76,7 @@ FILE *redirect;
 enum
   { OK, OLE, MLE, TLE, RTLE, RF, IE, RETNZ, TERM };	/* for the output statistics */
 enum
-  { EAT_INT, EAT_2INT, EAT_STRING, ERROR, EXECUTE, PARSE }; /* for the parsing */ 
+  { EAT_INT, EAT_STRING, ERROR, EXECUTE, PARSE }; /* for the parsing */ 
 
 char *names[] = {
   "UNKONWN",			/*  0 */
@@ -265,7 +265,7 @@ void validate (void) {
    where the command description starts */
 char **parse (char **p)
 {
-  unsigned int *input1, *input2;
+  unsigned int *input1;
   char **string1;
   char *function;
   int state;
@@ -333,16 +333,6 @@ char **parse (char **p)
       case EAT_STRING:
 	*string1 = *p;
 	state = PARSE;
-	break;
-      case EAT_2INT:
-	if (sscanf (*p, "%u", input2) == 1)
-	  state = EAT_INT;
-	else {
-	  fprintf (stderr,
-		   "error: Failed to match the first numeric argument for %s\n",
-		   function);
-	  state = ERROR;
-	}
 	break;
       case EAT_INT:
 	if (sscanf (*p, "%u", input1) == 1)
