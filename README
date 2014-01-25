@@ -49,7 +49,7 @@ make amonkeyoutofme (requires sudo access)
 
 ./safeexec (displays full list of options)
 
-./safeexec --memory 50000 --exec hello-world 
+./safeexec --mem 50000 --exec hello-world 
 (run the executable hello-world with a memory limit of 50000k)
 
 USAGE NOTES AND TROUBLESHOOTING

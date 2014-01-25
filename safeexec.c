@@ -360,35 +360,37 @@ char **parse (char **p)
 void printusage (char **p)
 {
   fprintf (stderr, "\nusage: %s <options> --exec <command>\n", *p);
-  fprintf (stderr, "\t\t**ATTENTION: read the security precautions in README**\n");
+  fprintf (stderr, "        **ATTENTION: read the security precautions in README**\n");
   fprintf (stderr, "Available options:\n");
-  fprintf (stderr, "\t--uidplus      <number>        default: %u\n",
+  fprintf (stderr, "  --uidplus      <number>        Default: %u + pid = uid\n",
 	   pdefault->uidplus);
-  fprintf (stderr, "\t--gid          <group id>      Default: %d\n",
+  fprintf (stderr, "  --gid          <group id>      Default: %d group id\n",
 	   ((int) pdefault->gid));
-  fprintf (stderr, "\t--cpu          <seconds>       Default: %lu second(s)\n",
+  fprintf (stderr, "  --cpu          <seconds>       Default: %lu seconds cpu time\n",
 	   pdefault->cpu);
-  fprintf (stderr, "\t--clock        <seconds>       Wall clock timeout (default: %lu)\n",
+  fprintf (stderr, "  --clock        <seconds>       Default: %lu seconds wall time\n",
 	   pdefault->clock);
-  fprintf (stderr, "\t--mem          <kbytes>        Default: %lu kbyte(s)\n",
+  fprintf (stderr, "  --mem          <kbytes>        Default: %lu kbytes total memory\n",
 	   pdefault->memory);
-  fprintf (stderr, "\t--core         <kbytes>        Default: %lu kbyte(s)\n",
+  fprintf (stderr, "  --core         <kbytes>        Default: %lu kbytes max core dump\n",
 	   pdefault->core);
-  fprintf (stderr, "\t--stack        <kbytes>        Default: %lu kbyte(s)\n",
+  /*  fprintf (stderr, "  --stack        <kbytes>        Default: %lu kbyte(s)\n",
 	   pdefault->stack);
-  fprintf (stderr, "\t--nproc        <number>        Default: %lu proccess(es)\n",
+  This is undocumented as it is potentially confusing. It's per-process!
+  */
+  fprintf (stderr, "  --nproc        <number>        Default: %lu processes\n",
 	   pdefault->nproc);
-  fprintf (stderr, "\t--fsize        <kbytes>        Default: %lu kbyte(s)\n",
+  fprintf (stderr, "  --fsize        <kbytes>        Default: %lu max kbytes written by all files\n",
 	   pdefault->fsize);
-  fprintf (stderr, "\t--nfile        <number>        Default: %lu file pointer(s)\n",
+  fprintf (stderr, "  --nfile        <number>        Default: %lu max open file pointers\n",
 	   pdefault->nfile);
-  fprintf (stderr, "\t--niceness     <int>           Default: %d (19=lowest priority, 10=highest)\n",
+  fprintf (stderr, "  --niceness     <number>        Default: %d (19=min priority, 10=max)\n",
 	   pdefault->niceness);
-  fprintf (stderr, "\t--chroot_dir   <dir>           Default: NULL (a full path starting with /)\n");
-  fprintf (stderr, "\t--exec_dir     <dir>           Default: NULL (relative to chroot_dir)\n");
-  fprintf (stderr, "\t--env_vars     \"X=Y\\nA=B\", PY  Default: inherit calling\n");
-  fprintf (stderr, "\t--report_file  <filename>      Supervisor report (relative to current dir; default: stderr)\n");
-  fprintf (stderr, "Returns: EXIT_SUCCESS(0) if everything went ok, EXIT_FAILURE otherwise (internal errors, over-limit, etc).\n\n");
+  fprintf (stderr, "  --chroot_dir   <dir>           Default: NULL (path starting with /)\n");
+  fprintf (stderr, "  --exec_dir     <dir>           Default: NULL (relative to chroot_dir)\n");
+  fprintf (stderr, "  --env_vars     \"X=Y\\nA=B\", PY  Default: inherit calling\n");
+  fprintf (stderr, "  --report_file  <filename>      Default: stderr (output report, relative to .)\n");
+  fprintf (stderr, "Return: 0 - everything went ok; nonzero - internal errors, over-limit, etc.\n\n");
 
 #ifdef LINUX_HACK
   fprintf (stderr, "Compiled with LINUX_HACK for RLIMIT_CPU\n");
