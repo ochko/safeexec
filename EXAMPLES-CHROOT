@@ -1,0 +1,22 @@
+#!/bin/bash
+set -o verbose
+
+### testing chroot jail functionality
+### it requires setting up shared libraries in general!
+### useful tools for setting up jail are ldd, lsof, "strace -f"
+
+ldd tests/hello # what is needed in jail? lists two things in /lib64
+
+mkdir chrootjail
+
+cp tests/hello chrootjail
+
+./safeexec --chroot_dir chrootjail --exec hello # execve error, caused by missing libs
+
+mkdir chrootjail/lib64
+
+cp /lib64/{ld-linux-x86-64.so.2,libc.so.6} chrootjail/lib64
+
+./safeexec --chroot_dir chrootjail --exec hello # "Hello World" should show!
+
+rm -rf chrootjail

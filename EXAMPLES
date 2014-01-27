@@ -1,0 +1,19 @@
+#!/bin/bash
+set -o verbose
+
+cd tests; make; cd ..  # compile "hello world" and infinite loop programs
+
+./safeexec --exec tests/hello-world 
+
+./safeexec --exec tests/hello # says "Hello World"
+
+./safeexec --mem 1000 --exec tests/hello # 1000k is not enough
+# Command terminated by signal (11: SIGSEGV)
+
+./safeexec --exec tests/forever # Time Limit Exceeded (after 10s)
+
+./safeexec --cpu 1 --exec tests/forever # Time Limit Exceeded (after 1s)
+
+./safeexec --clock 1 --exec tests/forever # Time Limit Exceeded (after 1s)
+
+./safeexec --cpu 1 --clock 5 --exec tests/sleep # Time Limit Exceeded (5s)

@@ -1,0 +1,68 @@
+#!/bin/bash
+
+set -o verbose
+
+# some of these examples require python3, but most work in python2
+read # press Enter to continue
+
+./safeexec --exec /usr/bin/python tests/hello.py
+read # press Enter to continue
+
+./safeexec --exec /usr/bin/python tests/fork.py # won't work
+read # press Enter to continue
+
+./safeexec --nproc 1 --exec /usr/bin/python tests/fork.py # prints twice
+read # press Enter to continue
+
+./safeexec --exec /usr/bin/python tests/rlimit.py # crashes: only root can increase rlimit
+read # press Enter to continue
+
+# test if network access is disabled. change to your address to see if it was received!
+echo "your@address.com" | /usr/bin/python tests/spam.py # goes thru on my machine
+read # press Enter to continue
+
+echo "your@address.com" | ./safeexec --exec /usr/bin/python tests/spam.py # blocked b/c of iptables on my machine
+read # press Enter to continue
+
+./safeexec --mem 500000 --exec /usr/bin/python3 tests/browse.py # name resolution failure
+read # press Enter to continue
+
+./safeexec --exec /usr/bin/python tests/memory.py # MemoryError
+read # press Enter to continue
+
+chmod o-rx .
+./safeexec --exec /usr/bin/python tests/ls-pwd.py # won't work
+read # press Enter to continue
+
+chmod o+rx .
+#chmod o+rx .. # etc, so the whole path is visible, remember to undo this!
+./safeexec --exec /usr/bin/python tests/ls-pwd.py # lists contents
+read # press Enter to continue
+
+./safeexec --exec_dir tests --exec /usr/bin/python ls-pwd.py # lists contents of "tests"
+read # press Enter to continue
+
+echo "Makefile" | ./safeexec --exec /usr/bin/python tests/readable.py # test read permissions of Makefile
+read # press Enter to continue
+
+# test writing to files
+touch allw
+echo "allw" | ./safeexec --fsize 1 --exec /usr/bin/python tests/writeable.py # no permission
+read # press Enter to continue
+chmod a+w allw
+echo "allw" | ./safeexec --exec /usr/bin/python tests/writeable.py # file too large
+read # press Enter to continue
+echo "allw" | ./safeexec --fsize 1 --nfile 0 --exec /usr/bin/python tests/writeable.py # too many open files
+read # press Enter to continue
+more allw   # still blank
+echo "allw" | ./safeexec --fsize 1 --exec /usr/bin/python tests/writeable.py
+read # press Enter to continue
+more allw   # has contents!
+rm allw
+read # press Enter to continue
+
+# test encoding issues
+./safeexec --env_vars PYTHONIOENCODING=UTF-8 --exec /usr/bin/python3 -S tests/encodestuff.py # happy faces!
+read # press Enter to continue
+
+./safeexec --exec /usr/bin/python tests/userinfo.py

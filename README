@@ -43,14 +43,30 @@ Among other things, this should prevent simultaneous safeexec'ed
 programs from kill()ing each other, which they could do if they had
 the same user id.
 
-INSTALLATION, EXAMPLE
+INSTALLATION
 
-make amonkeyoutofme (requires sudo access)
+make  # requires sudo access
 
-./safeexec (displays full list of options)
+USAGE
 
-./safeexec --mem 50000 --exec hello-world 
-(run the executable hello-world with a memory limit of 50000k)
+./safeexec   # run with no options to see arguments
+
+EXAMPLES
+
+See the file EXAMPLES. For a basic test, run:
+
+cd tests; make; cd ..  # compile "hello world" etc
+./safeexec --exec tests/hello-world 
+
+Expected result (stdout + stderr mixed):
+
+Hello World
+OK
+elapsed time: 0 seconds
+memory usage: 0 kbytes
+cpu usage: 0.000 seconds
+
+See EXAMPLES-CHROOT and EXAMPLES-ETC for more examples and tests.
 
 USAGE NOTES AND TROUBLESHOOTING
 
@@ -88,7 +104,7 @@ HISTORY
 
 Originally part of Mooshak (http://mooshak.dcc.fc.up.pt/)
 Revised in 2009 by http://github.com/ochko/safeexec
-This version revised in 2011-22 by David Pritchard (daveagp@gmail.com)
+This version revised in 2011-13 by David Pritchard (daveagp@gmail.com)
 http://github.com/daveagp
 
 Mooshak released the files under "The Artistic License".
