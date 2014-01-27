@@ -20,3 +20,7 @@ cp /lib64/{ld-linux-x86-64.so.2,libc.so.6} chrootjail/lib64
 ./safeexec --chroot_dir chrootjail --exec hello # "Hello World" should show!
 
 rm -rf chrootjail
+
+### you can see the jails we use for python and java here:
+### https://github.com/cemc/python3jail
+### https://github.com/daveagp/java_jail
