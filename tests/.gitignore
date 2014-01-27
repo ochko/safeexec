@@ -1,4 +1,4 @@
-*
-!*.c
-!.gitignore
-!.Makefile
+__pycache__
+hello
+forever
+sleep
