@@ -431,7 +431,7 @@ int main (int argc, char **argv, char **envp)
     if (strcmp(profile.env_vars, "PY") == 0) { 
       /* shorthand for needed Python environment variables, assuming that
 	 the necessary executables, libraries, etc. are in the root of jail */
-      char* xnewenvp[] = { "PYTHONIOENCODING=utf_8", "PYTHONHOME=/", "PYTHONPATH=/static", NULL };
+      char* xnewenvp[] = { "PYTHONIOENCODING=utf-8", "PYTHONHOME=/", "PYTHONPATH=/static", NULL };
       envp = xnewenvp;
     }
     else {
@@ -480,7 +480,7 @@ int main (int argc, char **argv, char **envp)
     }
     
     if (profile.exec_dir != NULL && 0 != chdir(profile.exec_dir)) {
-      error ("Cannot change to rundir");
+      error ("Could not chdir to exec_dir [%s] while in [%s]\n", profile.exec_dir, getcwd(NULL, 0));
       kill (getpid (), SIGPIPE);
     }
     
