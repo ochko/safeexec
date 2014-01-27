@@ -3,7 +3,7 @@ set -o verbose
 
 cd tests; make; cd ..  # compile "hello world" and infinite loop programs
 
-./safeexec --exec tests/hello-world 
+./safeexec --exec tests/hello 
 
 ./safeexec --exec tests/hello # says "Hello World"
 

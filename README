@@ -56,7 +56,7 @@ EXAMPLES
 See the file EXAMPLES. For a basic test, run:
 
 cd tests; make; cd ..  # compile "hello world" etc
-./safeexec --exec tests/hello-world 
+./safeexec --exec tests/hello 
 
 Expected result (stdout + stderr mixed):
 
