@@ -530,7 +530,7 @@ int main (int argc, char **argv, char **envp)
             error (NULL);
 
           if (getuid () == 0)
-            error ("Not changing the uid to an unpriviledged one is a BAD ideia");
+            error ("Not changing the uid to an unpriviledged one is a BAD");
 
           memusage_init ();
 
