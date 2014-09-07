@@ -128,7 +128,7 @@ int max (int a, int b)
 void terminate (pid_t pid)
 {
   int v;
-  v = kill (-1, SIGKILL);
+  v = kill (pid, SIGKILL);
   if (v < 0)
     if (errno != ESRCH)
       error (NULL);
