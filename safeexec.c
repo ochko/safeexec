@@ -561,7 +561,7 @@ int main (int argc, char **argv, char **envp)
                 }
 
               do
-                v = wait4 (pid, &status, WNOHANG | WUNTRACED, &usage);
+                v = wait4 (pid, &status, WNOHANG | WUNTRACED | WCONTINUED | WEXITED, &usage);
               while ((v < 0) && (errno != EINTR));
               if (v < 0)
                 error (NULL);
