@@ -6,7 +6,6 @@
  *   FILE *redirect
  */
 
-#include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
 #include <sys/select.h>
@@ -16,17 +15,12 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <string.h>
-#include <paths.h>
-#include <limits.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <kvm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/param.h>
-#include <sys/sysctl.h>
 #include <sys/user.h>
 #include <sys/resource.h>
 
