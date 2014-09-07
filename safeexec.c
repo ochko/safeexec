@@ -30,9 +30,10 @@
 #include <sys/user.h>
 #include <sys/resource.h>
 
-#include "safeexec.h"
 #include "error.h"
 #include "safe.h"
+#include "memusage.h"
+#include "safeexec.h"
 
 #define SIGXFSZ         25      /* exceeded file size limit(Fix for FreeBSD)  */
 #define MAXMEM     8388608      /* recent version of Java need more memory    */
@@ -42,8 +43,6 @@
 
 struct config profile = { 1, 32768, 0, 0, 8192, 8192, 0, 60, 5000, 65535 };
 struct config *pdefault = &profile;
-
-static kvm_t *kd;
 
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
@@ -55,7 +54,7 @@ char *error_file = "/dev/null";
 char *chroot_dir = NULL;
 char *run_dir = NULL;
 
-enum{ 
+enum{
   OK,   /* process finished normally	   */
   OLE,  /* output limit exceeded	   */
   MLE,  /* memory limit exceeded	   */
@@ -161,22 +160,6 @@ void msleep (int ms)
   while ((v < 0) && (errno == EINTR));
   if (v < 0)
     error (NULL);
-}
-
-int memusage (pid_t pid)
-{
-  struct kinfo_proc *kp;
-  int cnt = -1;
-
-  kp = kvm_getprocs(kd, KERN_PROC_PID, pid, &cnt);
-  if ((kp == NULL && cnt > 0) || (kp != NULL && cnt < 0))
-    error("%s", kvm_geterr(kd));
-
-  if (cnt == 1) {
-    return kp->ki_rusage.ru_maxrss;
-  }else{
-    return -1;
-  }
 }
 
 void setlimit (int resource, rlim_t n)
@@ -389,9 +372,8 @@ void wallclock (int v)
 }
 
 int main (int argc, char **argv, char **envp)
-{  
-  const char *nlistf, *memf;
-  char errbuf[_POSIX2_LINE_MAX];
+{
+
   struct rusage usage;
 
   char **p;
@@ -529,9 +511,9 @@ int main (int argc, char **argv, char **envp)
           setlimit (RLIMIT_FSIZE, profile.fsize * 1024);
           setlimit (RLIMIT_NPROC, profile.nproc);
           setlimit (RLIMIT_CPU, profile.cpu);
-	  
+
           setlimit (RLIMIT_SBSIZE, 0); /* socket buffer size in bytes */
-          /* Address space(including libraries) limit */ 
+          /* Address space(including libraries) limit */
           if (profile.aspace > 0)
             setlimit (RLIMIT_AS, profile.aspace * 1024);
 
@@ -550,11 +532,7 @@ int main (int argc, char **argv, char **envp)
           if (getuid () == 0)
             error ("Not changing the uid to an unpriviledged one is a BAD ideia");
 
-          nlistf = NULL;
-          memf = _PATH_DEVNULL;
-          kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf);
-          if (kd == 0)
-            error("%s", errbuf);
+          memusage_init ();
 
           mark = OK;
 
@@ -596,7 +574,7 @@ int main (int argc, char **argv, char **envp)
             }
           while (v == 0);
 
-          kvm_close(kd);
+          memusage_close ();
 
           ttarget = time (NULL);
 
