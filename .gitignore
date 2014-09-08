@@ -14,3 +14,7 @@ tests/stack
 tests/err
 tests/file
 tests/io
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
