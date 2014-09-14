@@ -54,6 +54,7 @@ struct config
   int uidplus;
   uid_t theuid;
 
+  int report_fd;
   char *report_file;
   char *chroot_dir;
   char *exec_dir;
@@ -65,7 +66,7 @@ struct config profile_default
                       = { 10, 32768, 0, 8192, 0, 0, 60,
 			  512, 16, 
 			  1000, 10000, 0,
-			  NULL, NULL, NULL, NULL };
+			  -1, NULL, NULL, NULL, NULL };
 
 struct config profile;
 
@@ -235,11 +236,13 @@ void setlimit (int resource, rlim_t n)
 /* Validate the config options, call error () on error */
 void validate (void) {
   unsigned int LARGECONST;
+  unsigned int HUGECONST;
   LARGECONST = 4194304;
+  HUGECONST = 41943040;
   if (profile.cpu == 0)
     error ("Cpu time must be greater than zero");
-  if (profile.memory >= LARGECONST)
-    error ("Memory limit must be smaller than %u", LARGECONST);
+  if (profile.memory >= HUGECONST)
+    error ("Memory limit must be smaller than %u", HUGECONST);
   if (profile.core >= LARGECONST)
     error ("Core limit must be smaller than %u", LARGECONST);
   if (profile.stack >= LARGECONST)
@@ -311,6 +314,8 @@ char **parse (char **p)
 	  input1 = (unsigned int *) &profile.niceness;
 	else if (strcmp (*p, "--exec") == 0)
 	  state = EXECUTE;
+	else if (strcmp (*p, "--report_fd") == 0)
+	  input1 = (unsigned int *) &profile.report_fd;
 	else if (strcmp (*p, "--report_file") == 0) {
 	  state = EAT_STRING;
 	  string1 = (char **) &profile.report_file; 
@@ -391,6 +396,7 @@ void printusage (char **p)
   fprintf (stderr, "  --exec_dir     <dir>           Default: NULL (relative to chroot_dir)\n");
   fprintf (stderr, "  --env_vars     \"X=Y\\nA=B\", PY  Default: inherit calling\n");
   fprintf (stderr, "  --report_file  <filename>      Default: stderr (output report, relative to .)\n");
+  fprintf (stderr, "  --report_fd    <int>           Default: -1 (report to numbered file descriptor instead)\n");
   fprintf (stderr, "Return: 0 - everything went ok; nonzero - internal errors, over-limit, etc.\n\n");
 
 #ifdef LINUX_HACK
@@ -450,6 +456,11 @@ int main (int argc, char **argv, char **envp)
     redirect = fopen (profile.report_file, "w");
     if (redirect == NULL)
       error ("Couldn't open redirection file\n");
+  }
+  else if (profile.report_fd != -1) {
+    redirect = fdopen(profile.report_fd, "w");
+    if (redirect == NULL)
+      error ("Couldn't open redirection file descriptor\n");
   }
       
   profile.theuid = profile.uidplus + getpid();
