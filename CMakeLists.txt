@@ -16,3 +16,51 @@ endif ()
 add_executable(safeexec safeexec.c error.c safe.c platform/${PLATFORM}/memusage.c)
 
 target_link_libraries(safeexec ${LINKED_LIBS})
+
+add_executable(tests/test-stderr tests/test-stderr.c)
+add_executable(tests/test-write  tests/test-write.c )
+add_executable(tests/test-read   tests/test-read.c  )
+add_executable(tests/test-fork   tests/test-fork.c  )
+add_executable(tests/test-io     tests/test-io.c    )
+add_executable(tests/test-mle    tests/test-mle.c   )
+add_executable(tests/test-ole    tests/test-ole.c   )
+add_executable(tests/test-ret    tests/test-ret.c   )
+add_executable(tests/test-tle    tests/test-tle.c   )
+add_executable(tests/test-wtle   tests/test-wtle.c  )
+
+enable_testing()
+
+add_test(memory-limit-exceeded tests/driver.rb test-mle
+         "--mem 32768"
+         "Memory Limit Exceeded"
+         "elapsed time: ? seconds"
+         "memory usage: >32768 kbytes"
+         "cpu usage: ? seconds")
+
+add_test(time-limit-exceeded tests/driver.rb test-tle
+         "--cpu 1"
+         "Time Limit Exceeded"
+         "elapsed time: >1 seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: >1 seconds")
+
+add_test(output-limit-exceeded tests/driver.rb test-ole
+         " "
+         "Time Limit Exceeded"
+         "elapsed time: >1 seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: >1 seconds")
+
+add_test(fork-prevention tests/driver.rb test-fork
+         "--nproc 0"
+         "Command exited with non-zero status"
+         "elapsed time: ? seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: ? seconds")
+
+add_test(wall-time-limit-exceeded tests/driver.rb test-wtle
+         "--clock 3"
+         "Time Limit Exceeded"
+         "elapsed time: >3 seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: ? seconds")
