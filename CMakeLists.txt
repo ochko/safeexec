@@ -51,8 +51,22 @@ add_test(output-limit-exceeded tests/driver.rb test-ole
          "memory usage: ? kbytes"
          "cpu usage: >1 seconds")
 
-add_test(fork-prevention tests/driver.rb test-fork
+add_test(fork-attemp tests/driver.rb test-fork
          "--nproc 0"
+         "Command exited with non-zero status"
+         "elapsed time: ? seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: ? seconds")
+
+add_test(file-write-attemp tests/driver.rb test-write
+         " "
+         "Command exited with non-zero status"
+         "elapsed time: ? seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: ? seconds")
+
+add_test(return-code tests/driver.rb test-ret
+         " "
          "Command exited with non-zero status"
          "elapsed time: ? seconds"
          "memory usage: ? kbytes"

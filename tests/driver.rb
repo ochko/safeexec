@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+# TODO:
+# use optparse for standard input/output/error tests
+
 arguments = ARGV.dup
 executable = File.join(File.dirname(__FILE__), arguments.shift)
 unless File.executable?(executable)
@@ -14,6 +17,7 @@ unless File.executable?(safeexec)
 end
 
 out = File.join(File.dirname(__FILE__), 'usage.out')
+File.unlink(out) if File.exists?(out)
 params = arguments.shift
 system "#{safeexec} --usage #{out} --exec #{executable} #{params} > /dev/null"
 usage = File.read(out).split("\n")
