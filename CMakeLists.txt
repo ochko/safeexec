@@ -17,6 +17,9 @@ add_executable(safeexec safeexec.c error.c safe.c platform/${PLATFORM}/memusage.
 
 target_link_libraries(safeexec ${LINKED_LIBS})
 
+add_custom_target(permission chown root safeexec
+                  COMMAND chmod u+s safeexec)
+
 add_executable(tests/test-stderr tests/test-stderr.c)
 add_executable(tests/test-write  tests/test-write.c )
 add_executable(tests/test-read   tests/test-read.c  )
@@ -78,3 +81,9 @@ add_test(wall-time-limit-exceeded tests/driver.rb test-wtle
          "elapsed time: >3 seconds"
          "memory usage: ? kbytes"
          "cpu usage: ? seconds")
+
+install(TARGETS safeexec
+        DESTINATION "bin"
+        PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+
+install(SCRIPT chown.cmake)

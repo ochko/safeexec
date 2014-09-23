@@ -4,10 +4,11 @@ Safely execute untrusted binaries from external source.
 
 # Build
 
-Clone this repository and run
+Clone this repository and run:
 
 ```
-% cmake . && make
+% cmake .
+% make
 ```
 
 # Install
@@ -15,19 +16,23 @@ Clone this repository and run
 You'll need root to install binary to set root setuid bit.
 
 ```
-% chown root safeexed
-% chmod u+s safeexed
+% sudo make install
 ```
 
 # Test
 
-Test are in `./tests` directory.
-
 ```
-% cd tests
-% ./execute.sh
+% make
+% sudo make permission
+% make test
 ```
 
 # History
 
-This is safe executor extends mooshak's SafeExec by adding chroot feature.
+This is copied from mooshak's SafeExec.
+
+## Changes
+
+* FreeBSD support
+* Add some error handling
+* Add chroot feature
