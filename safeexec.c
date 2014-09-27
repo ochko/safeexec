@@ -12,7 +12,6 @@
 #define _XOPEN_SOURCE 500       /* getpgid */
 #define _GNU_SOURCE             /* CLONE_NEWIPC */
 
-#include <sched.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <grp.h>
@@ -31,7 +30,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <stdarg.h>
-#include <time.h>
+#include <sched.h>
+#include <linux/version.h>
 
 #include "safe.h"
 
@@ -506,13 +506,14 @@ int main (int argc, char **argv, char **envp)
 
     /* unshare everything you can! */
     unshare_flags = CLONE_FILES | CLONE_FS | CLONE_NEWNS;
-    /* linux 2.6.19 */
-#ifdef CLONE_NEWIPC
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
     unshare_flags |= CLONE_NEWIPC | CLONE_NEWUTS;
 #endif
-    /* linux 2.6.24,26 */
-#ifdef CLONE_SYSVSEM
-    unshare_flags |= CLONE_NEWNET | CLONE_SYSVSEM;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+    unshare_flags |= CLONE_NEWNET;
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+    unshare_flags |= CLONE_SYSVSEM;
 #endif
 
     if (unshare (unshare_flags) < 0)
