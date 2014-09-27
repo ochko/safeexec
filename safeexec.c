@@ -10,7 +10,9 @@
 #define _BSD_SOURCE		/* to include wait4 function prototype */
 #define _POSIX_SOURCE		/* to include kill  function prototype */
 #define _XOPEN_SOURCE 500       /* getpgid */
+#define _GNU_SOURCE             /* CLONE_NEWIPC */
 
+#include <sched.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <grp.h>
@@ -420,6 +422,7 @@ int main (int argc, char **argv, char **envp)
   int status, mem;
   int tsource, ttarget;
   int v;
+  int unshare_flags;
 
   profile = profile_default;
 
@@ -500,7 +503,26 @@ int main (int argc, char **argv, char **envp)
       error ("Could not set priority");
       kill (getpid (), SIGPIPE);
     }
+
+    /* unshare everything you can! */
+    unshare_flags = CLONE_FILES | CLONE_FS | CLONE_NEWNS;
+    /* linux 2.6.19 */
+#ifdef CLONE_NEWIPC
+    unshare_flags |= CLONE_NEWIPC | CLONE_NEWUTS;
+#endif
+    /* linux 2.6.24,26 */
+#ifdef CLONE_SYSVSEM
+    unshare_flags |= CLONE_NEWNET | CLONE_SYSVSEM;
+#endif
+
+    if (unshare (unshare_flags) < 0)
+      error ("unshare failed\n");
+    /* unshare everything */
     
+    if (setsid () < 0)
+      error ("setsid failed\n");
+    /* new session and therefore also, new process group */
+
     if (setgid (profile.gid) < 0 || getgid () != profile.gid || profile.gid == 0)
       error ("setgid failed\n");
     
@@ -509,10 +531,6 @@ int main (int argc, char **argv, char **envp)
     
     if (setuid (profile.theuid) < 0 || getuid() != profile.theuid || profile.theuid == 0)
       error ("setuid failed\n");
-    
-    if (setsid () < 0)
-      error ("setsid failed\n");
-    /* new session and therefore also, new process group */
     
     if (execve (*p, p, envp) < 0) {
       error ("execve error\n");
