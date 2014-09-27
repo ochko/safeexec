@@ -9,6 +9,7 @@
 
 #define _BSD_SOURCE		/* to include wait4 function prototype */
 #define _POSIX_SOURCE		/* to include kill  function prototype */
+#define _XOPEN_SOURCE 500       /* getpgid */
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -508,6 +509,10 @@ int main (int argc, char **argv, char **envp)
     
     if (setuid (profile.theuid) < 0 || getuid() != profile.theuid || profile.theuid == 0)
       error ("setuid failed\n");
+    
+    if (setsid () < 0)
+      error ("setsid failed\n");
+    /* new session and therefore also, new process group */
     
     if (execve (*p, p, envp) < 0) {
       error ("execve error\n");
