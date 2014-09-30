@@ -510,7 +510,7 @@ int main (int argc, char **argv, char **envp)
     unshare_flags |= CLONE_NEWIPC | CLONE_NEWUTS;
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-    unshare_flags |= CLONE_NEWNET;
+    /*unshare_flags |= CLONE_NEWNET;*/ /* java doesn't like this :( */
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
     unshare_flags |= CLONE_SYSVSEM;
@@ -521,7 +521,7 @@ int main (int argc, char **argv, char **envp)
     /* unshare everything */
     
     if (setsid () < 0)
-      error ("setsid failed\n");
+          error ("setsid failed\n");
     /* new session and therefore also, new process group */
 
     if (setgid (profile.gid) < 0 || getgid () != profile.gid || profile.gid == 0)
