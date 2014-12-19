@@ -62,6 +62,8 @@ struct config
   char *chroot_dir;
   char *exec_dir;
   char *env_vars;
+  
+  int share_newnet;
 };
 
 
@@ -69,7 +71,8 @@ struct config profile_default
                       = { 10, 32768, 0, 8192, 0, 0, 60,
 			  512, 16, 
 			  1000, 10000, 0,
-			  -1, NULL, NULL, NULL, NULL };
+			  -1, NULL, NULL, NULL, NULL,
+                          0 };
 
 struct config profile;
 
@@ -331,6 +334,9 @@ char **parse (char **p)
 	} else if (strcmp (*p, "--env_vars") == 0) {
 	  state = EAT_STRING;
 	  string1 = (char **) &profile.env_vars; 
+	} else if (strcmp (*p, "--share_newnet") == 0) {
+	  profile.share_newnet = 1;
+	  state = PARSE; 
 	} else if (strcmp (*p, "--silent") == 0) {
 	  silent = 1;
 	  state = PARSE; 
@@ -400,6 +406,7 @@ void printusage (char **p)
   fprintf (stderr, "  --env_vars     \"X=Y\\nA=B\", PY  Default: inherit calling\n");
   fprintf (stderr, "  --report_file  <filename>      Default: stderr (output report, relative to .)\n");
   fprintf (stderr, "  --report_fd    <int>           Default: -1 (report to numbered file descriptor instead)\n");
+  fprintf (stderr, "  --share_newnet                 Disable unshare(CLONE_NEWNET), e.g. for Java visualizer\n");
   fprintf (stderr, "Return: 0 - everything went ok; nonzero - internal errors, over-limit, etc.\n\n");
 
 #ifdef LINUX_HACK
@@ -510,14 +517,15 @@ int main (int argc, char **argv, char **envp)
     unshare_flags |= CLONE_NEWIPC | CLONE_NEWUTS;
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-    /*unshare_flags |= CLONE_NEWNET;*/ /* java doesn't like this :( */
+    if (profile.share_newnet == 0)
+       unshare_flags |= CLONE_NEWNET;
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
     unshare_flags |= CLONE_SYSVSEM;
 #endif
 
     if (unshare (unshare_flags) < 0)
-      error ("unshare failed\n");
+       error ("unshare failed\n");
     /* unshare everything */
     
     if (setsid () < 0)
