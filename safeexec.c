@@ -21,12 +21,12 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/param.h>
-#include <sys/user.h>
 #include <sys/resource.h>
 
 #include "error.h"
 #include "safe.h"
 #include "memusage.h"
+#include "setlimit.h"
 #include "safeexec.h"
 
 #define SIGXFSZ         25      /* exceeded file size limit(Fix for FreeBSD)  */
@@ -35,7 +35,7 @@
 #define NICE_LEVEL      15
 #define LARGECONST 4194304
 
-struct config profile = { 1, 32768, 0, 0, 8192, 8192, 0, 60, 5000, 65535 };
+struct config profile = { 1, 32768, 0, 0, 8192, 8192, 0, 10, 5000, 65535 };
 struct config *pdefault = &profile;
 
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
@@ -154,24 +154,6 @@ void msleep (int ms)
   while ((v < 0) && (errno == EINTR));
   if (v < 0)
     error (NULL);
-}
-
-void setlimit (int resource, rlim_t n)
-{
-  struct rlimit limit;
-
-  limit.rlim_cur = limit.rlim_max = n;
-  if (setrlimit (resource, &limit) < 0)
-    {
-      if (errno == EINTR)
-        {
-          error ("No permission to raise limit for %d to %d\n", resource, n);
-        }
-      else
-        {
-          error (NULL);
-        }
-    }
 }
 
 /* Validate the config options, call error () on error */
@@ -387,7 +369,7 @@ int main (int argc, char **argv, char **envp)
     }
   else
     {
-      /*
+
         fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) profile.cpu,
         (unsigned int) profile.memory);
         fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) profile.core,
@@ -397,7 +379,7 @@ int main (int argc, char **argv, char **envp)
         fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) profile.minuid,
         (unsigned int) profile.maxuid);
         fprintf (stderr, "  clock=%u\n", (unsigned int) profile.clock);
-      */
+
 
       /* Get an unused uid */
       if (profile.minuid != profile.maxuid)
@@ -458,11 +440,15 @@ int main (int argc, char **argv, char **envp)
       if (alarm (profile.clock) != 0)
         error ("Couldn't set alarm");
 
+      /* Fork new process */
       pid = fork ();
       if (pid < 0)
         error (NULL);
+
       if (pid == 0)
+        /* Forked/child process */
         {
+          /* Chrooting */
           if (chroot_dir != NULL)
             {
               if (0 != chdir(chroot_dir))
@@ -476,6 +462,7 @@ int main (int argc, char **argv, char **envp)
                   error ("Can not chroot");
                 }
             }
+          /* Change dir */
           if (run_dir != NULL)
             {
               if (0 != chdir(run_dir))
@@ -490,26 +477,19 @@ int main (int argc, char **argv, char **envp)
           if (setuid (profile.minuid) < 0)
             error (NULL);
 
+          /* Don't run as root */
           if (getuid () == 0)
-            error ("Not changing the uid to an unpriviledged one is a BAD ideia");
+            error ("Running as a root is not secure!");
 
-          /* set priority */
+          /* Set priority */
           if (0 != setpriority(PRIO_USER,profile.minuid,NICE_LEVEL))
             {
               kill (getpid (), SIGPIPE);
               error (NULL);
             }
 
-          setlimit (RLIMIT_CORE, profile.core * 1024);
-          setlimit (RLIMIT_STACK, profile.stack * 1024);
-          setlimit (RLIMIT_FSIZE, profile.fsize * 1024);
-          setlimit (RLIMIT_NPROC, profile.nproc);
-          setlimit (RLIMIT_CPU, profile.cpu);
-
-          setlimit (RLIMIT_SBSIZE, 0); /* socket buffer size in bytes */
-          /* Address space(including libraries) limit */
-          if (profile.aspace > 0)
-            setlimit (RLIMIT_AS, profile.aspace * 1024);
+          /* Set resource limits - memory, time etc */
+          setlimits(profile);
 
           /* Execute the program */
           if (execve (*p, p, envp) < 0)
@@ -519,12 +499,13 @@ int main (int argc, char **argv, char **envp)
             }
         }
       else
+        /* Parent process */
         {
           if (setuid (profile.minuid) < 0)
             error (NULL);
 
           if (getuid () == 0)
-            error ("Not changing the uid to an unpriviledged one is a BAD");
+            error ("Running as a root is not secure!");
 
           memusage_init ();
 
@@ -561,7 +542,8 @@ int main (int argc, char **argv, char **envp)
                 }
 
               do
-                v = wait4 (pid, &status, WNOHANG | WUNTRACED | WCONTINUED | WEXITED, &usage);
+                v = wait4 (pid, &status, WNOHANG | WUNTRACED, &usage);
+              //v = wait4 (pid, &status, WNOHANG | WUNTRACED | WCONTINUED | WEXITED, &usage);
               while ((v < 0) && (errno != EINTR));
               if (v < 0)
                 error (NULL);

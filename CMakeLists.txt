@@ -13,7 +13,7 @@ else ()
     message(FATAL_ERROR "This OS is not supported.")
 endif ()
 
-add_executable(safeexec safeexec.c error.c safe.c platform/${PLATFORM}/memusage.c)
+add_executable(safeexec safeexec.c error.c safe.c setlimit.c platform/${PLATFORM}/setlimits.c platform/${PLATFORM}/memusage.c)
 
 target_link_libraries(safeexec ${LINKED_LIBS})
 
@@ -76,7 +76,7 @@ add_test(return-code tests/driver.rb test-ret
          "cpu usage: ? seconds")
 
 add_test(wall-time-limit-exceeded tests/driver.rb test-wtle
-         "--clock 3"
+         "--clock 1"
          "Time Limit Exceeded"
          "elapsed time: >3 seconds"
          "memory usage: ? kbytes"
