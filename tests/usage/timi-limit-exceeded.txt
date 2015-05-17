@@ -1,0 +1,4 @@
+Time Limit Exceeded
+elapsed time: 2 seconds
+memory usage: 1424 kbytes
+cpu usage: 1.000 seconds

@@ -4,65 +4,65 @@
  *   we use stdin and stdout to passing and receiving information to
  *   the program we are about to execute, and report statistics on
  *   FILE *redirect
- *
- * Please check out #ifdef LINUX_HACK
  */
 
-#define _BSD_SOURCE             /* to include wait4 function prototype */
-#define _POSIX_SOURCE           /* to include kill  function prototype */
-
-#include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
+#include <ctype.h>
+#include <sys/select.h>
+#include <signal.h>
+#include <time.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <ctype.h>
-#include <sys/select.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <signal.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-#include <time.h>
-#include <stdarg.h>
-#include <time.h>
+#include <sys/time.h>
+#include <sys/param.h>
+#include <sys/resource.h>
 
-#include "safeexec.h"
 #include "error.h"
 #include "safe.h"
-                                /* Fix for FreeBSD :<       */
-#define SIGXFSZ         25      /* exceeded file size limit */
+#include "memusage.h"
+#include "setlimit.h"
+#include "safeexec.h"
 
+#define SIGXFSZ         25      /* exceeded file size limit(Fix for FreeBSD)  */
+#define MAXMEM     8388608      /* recent version of Java need more memory    */
+#define INTERVAL        61      /* about 16 times a second                    */
+#define NICE_LEVEL      15
 #define LARGECONST 4194304
-#define XLARGECONST 2*LARGECONST/* recent version of Java need more memory */
-#define SIZE          8192      /* buffer size for reading /proc/<pid>/status */
-#define INTERVAL        67      /* about 15 times a second                    *
-                                 * Is a good idea to use a prime number, as   *
-                                 * the users will not notice it (much)        */
-#define NICE_LEVEL 15
 
-struct config profile = { 10, 32768, 0, 8192, 8192, 0, 60, 500, 65535 };
+struct config profile = { 1, 32768, 0, 0, 8192, 8192, 0, 10, 5000, 65535 };
 struct config *pdefault = &profile;
 
 pid_t pid;			/* is global, because we kill the proccess in alarm handler */
 int mark;
 int silent = 0;
-char *usage_file = "/dev/null";
 FILE *redirect;
-char *chroot_dir = "/tmp";
-char *run_dir = "run";
+FILE *junk;
+char *usage_file = "/dev/null";
+char *error_file = "/dev/null";
+char *chroot_dir = NULL;
+char *run_dir = NULL;
 
+enum{
+  OK,   /* process finished normally	   */
+  OLE,  /* output limit exceeded	   */
+  MLE,  /* memory limit exceeded	   */
+  TLE,  /* time limit exceeded		   */
+  RTLE, /* time limit exceeded(wall clock) */
+  RF,   /* invalid function		   */
+  IE    /* internal error		   */
+};
 enum
-{ OK, OLE, MLE, TLE, RTLE, RF, IE };	/* for the output statistics */
-enum
-{
-  PARSE, INPUT1, INPUT16,
-  INPUT2, INPUT4, INPUT8,
-  ERROR, EXECUTE
-};				/* for the parsing "finite-state machine" */
+  {
+    PARSE, INPUT1, INPUT16,
+    INPUT2, INPUT4, INPUT8,
+    ERROR, EXECUTE, INPUT32
+  };				/* for the parsing "finite-state machine" */
 
 char *names[] = {
   "UNKONWN",      /*  0 */
@@ -128,7 +128,7 @@ int max (int a, int b)
 void terminate (pid_t pid)
 {
   int v;
-  v = kill (-1, SIGKILL);
+  v = kill (pid, SIGKILL);
   if (v < 0)
     if (errno != ESRCH)
       error (NULL);
@@ -156,73 +156,13 @@ void msleep (int ms)
     error (NULL);
 }
 
-int memusage (pid_t pid)
-{
-  char a[SIZE], *p, *q;
-  int data, stack;
-  int n, v, fd;
-
-  p = a;
-  sprintf (p, "/proc/%d/status", pid);
-  fd = open (p, O_RDONLY);
-  if (fd < 0){
-    if (errno == ENOENT){
-      return 0;
-    } else {
-      error (NULL);
-    }
-  }
-  do
-    n = read (fd, p, SIZE);
-  while ((n < 0) && (errno == EINTR));
-  if (n < 0)
-    error (NULL);
-  do
-    v = close (fd);
-  while ((v < 0) && (errno == EINTR));
-  if (v < 0)
-    error (NULL);
-
-  data = stack = 0;
-  q = strstr (p, "VmData:");
-  if (q != NULL)
-    {
-      sscanf (q, "%*s %d", &data);
-      q = strstr (q, "VmStk:");
-      if (q != NULL)
-        sscanf (q, "%*s %d\n", &stack);
-    }
-
-  return (data + stack);
-}
-
-void setlimit (int resource, rlim_t n)
-{
-  struct rlimit limit;
-
-#ifdef LINUX_HACK
-  /* Linux hack: in freebsd the process will   *
-   * be killed exactly  after n  seconds. In   *
-   * linux the behaviour depends on the kernel *
-   * version (before 2.6 the process is killed *
-   * after n+1 seconds, in 2.6 is after n.     */
-  if (resource == RLIMIT_CPU)
-    if (n > 0)
-      n--;
-#endif
-
-  limit.rlim_cur = limit.rlim_max = n;
-  if (setrlimit (resource, &limit) < 0)
-    error (NULL);
-}
-
 /* Validate the config options, call error () on error */
 void validate (void)
 {
   if (profile.cpu == 0)
     error ("Cpu time must be greater than zero");
-  if (profile.memory >= XLARGECONST)
-    error ("Memory limit must be smaller than %u", XLARGECONST);
+  if (profile.memory >= MAXMEM)
+    error ("Memory limit must be smaller than %u", MAXMEM);
   if (profile.core >= LARGECONST)
     error ("Core limit must be smaller than %u", LARGECONST);
   if (profile.stack >= LARGECONST)
@@ -267,88 +207,96 @@ char **parse (char **p)
           break;
         switch (state)
           {
-            case PARSE:
-              state = INPUT1;
-              function = *p;
-              if (strcmp (*p, "--cpu") == 0)
-                input1 = (unsigned int *) &profile.cpu;
-              else if (strcmp (*p, "--mem") == 0)
-                input1 = (unsigned int *) &profile.memory;
-              else if (strcmp (*p, "--uids") == 0)
-                {
-                  input2 = (unsigned int *) &profile.minuid;
-                  input1 = (unsigned int *) &profile.maxuid;
-                  state = INPUT2;
-                }
-              else if (strcmp (*p, "--minuid") == 0)
-                input1 = (unsigned int *) &profile.minuid;
-              else if (strcmp (*p, "--maxuid") == 0)
+          case PARSE:
+            state = INPUT1;
+            function = *p;
+            if (strcmp (*p, "--cpu") == 0)
+              input1 = (unsigned int *) &profile.cpu;
+            else if (strcmp (*p, "--mem") == 0)
+              input1 = (unsigned int *) &profile.memory;
+            else if (strcmp (*p, "--space") == 0)
+              input1 = (unsigned int *) &profile.aspace;
+            else if (strcmp (*p, "--uids") == 0)
+              {
+                input2 = (unsigned int *) &profile.minuid;
                 input1 = (unsigned int *) &profile.maxuid;
-              else if (strcmp (*p, "--core") == 0)
-                input1 = (unsigned int *) &profile.core;
-              else if (strcmp (*p, "--nproc") == 0)
-                input1 = (unsigned int *) &profile.nproc;
-              else if (strcmp (*p, "--fsize") == 0)
-                input1 = (unsigned int *) &profile.fsize;
-              else if (strcmp (*p, "--stack") == 0)
-                input1 = (unsigned int *) &profile.stack;
-              else if (strcmp (*p, "--clock") == 0)
-                input1 = (unsigned int *) &profile.clock;
-              else if (strcmp (*p, "--exec") == 0)
-                state = EXECUTE;
-              else if (strcmp (*p, "--usage") == 0)
-                state = INPUT4;
-              else if (strcmp (*p, "--chroot") == 0)
-                state = INPUT8;
-              else if (strcmp (*p, "--rundir") == 0)
-                state = INPUT16;
-              else if (strcmp (*p, "--silent") == 0)
-                {
-                  silent = 1;
-                  state = PARSE;
-                }
-              else
-                {
-                  fprintf (stderr, "error: Invalid option: %s\n", *p);
-                  state = ERROR;
-                }
-              break;
-            case INPUT4:
-              usage_file = *p;
-              state = PARSE;
-              break;
-            case INPUT8:
-              chroot_dir = *p;
-              state = PARSE;
-              break;
-            case INPUT16:
-              run_dir = *p;
-              state = PARSE;
-              break;
-            case INPUT2:
-              if (sscanf (*p, "%u", input2) == 1)
-                state = INPUT1;
-              else
-                {
-                  fprintf (stderr,
-                           "error: Failed to match the first numeric argument for %s\n",
-                           function);
-                  state = ERROR;
-                }
-              break;
-            case INPUT1:
-              if (sscanf (*p, "%u", input1) == 1)
+                state = INPUT2;
+              }
+            else if (strcmp (*p, "--minuid") == 0)
+              input1 = (unsigned int *) &profile.minuid;
+            else if (strcmp (*p, "--maxuid") == 0)
+              input1 = (unsigned int *) &profile.maxuid;
+            else if (strcmp (*p, "--core") == 0)
+              input1 = (unsigned int *) &profile.core;
+            else if (strcmp (*p, "--nproc") == 0)
+              input1 = (unsigned int *) &profile.nproc;
+            else if (strcmp (*p, "--fsize") == 0)
+              input1 = (unsigned int *) &profile.fsize;
+            else if (strcmp (*p, "--stack") == 0)
+              input1 = (unsigned int *) &profile.stack;
+            else if (strcmp (*p, "--clock") == 0)
+              input1 = (unsigned int *) &profile.clock;
+            else if (strcmp (*p, "--exec") == 0)
+              state = EXECUTE;
+            else if (strcmp (*p, "--usage") == 0)
+              state = INPUT4;
+            else if (strcmp (*p, "--chroot") == 0)
+              state = INPUT8;
+            else if (strcmp (*p, "--rundir") == 0)
+              state = INPUT16;
+            else if (strcmp (*p, "--error") == 0)
+              state = INPUT32;
+            else if (strcmp (*p, "--silent") == 0)
+              {
+                silent = 1;
                 state = PARSE;
-              else
-                {
-                  fprintf (stderr,
-                           "error: Failed to match the numeric argument for %s\n",
-                           function);
-                  state = ERROR;
-                }
-              break;
-            default:
-              break;
+              }
+            else
+              {
+                fprintf (stderr, "error: Invalid option: %s\n", *p);
+                state = ERROR;
+              }
+            break;
+          case INPUT4:
+            usage_file = *p;
+            state = PARSE;
+            break;
+          case INPUT8:
+            chroot_dir = *p;
+            state = PARSE;
+            break;
+          case INPUT16:
+            run_dir = *p;
+            state = PARSE;
+            break;
+          case INPUT32:
+            error_file = *p;
+            state = PARSE;
+            break;
+          case INPUT2:
+            if (sscanf (*p, "%u", input2) == 1)
+              state = INPUT1;
+            else
+              {
+                fprintf (stderr,
+                         "error: Failed to match the first numeric argument for %s\n",
+                         function);
+                state = ERROR;
+              }
+            break;
+          case INPUT1:
+            if (sscanf (*p, "%u", input1) == 1)
+              state = PARSE;
+            else
+              {
+                fprintf (stderr,
+                         "error: Failed to match the numeric argument for %s\n",
+                         function);
+                state = ERROR;
+              }
+            break;
+          default:
+            break;
           }
       }
   if (state == ERROR)
@@ -356,7 +304,6 @@ char **parse (char **p)
   else
     {
       assert (state == EXECUTE);
-      validate ();
       return (p);
     }
 }
@@ -369,6 +316,8 @@ void printusage (char **p)
            pdefault->cpu);
   fprintf (stderr, "\t--mem     <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->memory);
+  fprintf (stderr, "\t--space   <kbytes>            Default: %lu kbyte(s)\n",
+           pdefault->aspace);
   fprintf (stderr, "\t--uids    <minuid> <maxuid>   Default: %u-%u\n",
            pdefault->minuid, pdefault->maxuid);
   fprintf (stderr, "\t--minuid  <uid>               Default: %u\n",
@@ -377,23 +326,17 @@ void printusage (char **p)
            pdefault->maxuid);
   fprintf (stderr, "\t--core    <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->core);
-  fprintf (stderr,
-           "\t--nproc   <number>            Default: %lu proccess(es)\n",
+  fprintf (stderr, "\t--nproc   <number>            Default: %lu proccess(es)\n",
            pdefault->nproc);
   fprintf (stderr, "\t--fsize   <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->fsize);
   fprintf (stderr, "\t--stack   <kbytes>            Default: %lu kbyte(s)\n",
            pdefault->stack);
-  fprintf (stderr,
-           "\t--clock   <seconds>           Wall clock timeout (default: %lu)\n",
+  fprintf (stderr, "\t--clock   <seconds>           Wall clock timeout (default: %lu)\n",
            pdefault->clock);
-  fprintf (stderr,
-           "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
-  fprintf (stderr,
-           "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
-#ifdef LINUX_HACK
-  fprintf (stderr, "Compiled with LINUX_HACK for RLIMIT_CPU\n");
-#endif
+  fprintf (stderr, "\t--usage   <filename>          Report statistics to ... (default: stderr)\n");
+  fprintf (stderr, "\t--chroot  <path>              Directory to chrooted (default: /tmp)\n");
+  fprintf (stderr, "\t--error   <path>              Print stderr to file (default: /dev/null)\n");
 }
 
 void wallclock (int v)
@@ -406,9 +349,11 @@ void wallclock (int v)
 
 int main (int argc, char **argv, char **envp)
 {
+
   struct rusage usage;
+
   char **p;
-  int status, mem;
+  int status, mem, skipped, memused;
   int tsource, ttarget;
   int v;
 
@@ -424,37 +369,67 @@ int main (int argc, char **argv, char **envp)
     }
   else
     {
-      /*
-         fprintf (stderr, "profile: \"%s\"\n", limit->name);
-         fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) limit->cpu,
-         (unsigned int) limit->memory);
-         fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) limit->core,
-         (unsigned int) limit->stack);
-         fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) limit->fsize,
-         (unsigned int) limit->nproc);
-         fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) limit->minuid,
-         (unsigned int) limit->maxuid);
-         fprintf (stderr, "  clock=%u\n",
-         (unsigned int) limit->clock);
-       */
 
-      /* Still missing: get an unused uid from interval */
+        fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) profile.cpu,
+        (unsigned int) profile.memory);
+        fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) profile.core,
+        (unsigned int) profile.stack);
+        fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) profile.fsize,
+        (unsigned int) profile.nproc);
+        fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) profile.minuid,
+        (unsigned int) profile.maxuid);
+        fprintf (stderr, "  clock=%u\n", (unsigned int) profile.clock);
+
+
+      /* Get an unused uid */
       if (profile.minuid != profile.maxuid)
         {
           srand (time (NULL) ^ getpid ());
           profile.minuid += rand () % (profile.maxuid - profile.minuid);
         }
 
-      if (setuid (profile.minuid) < 0)
-        error (NULL);
-
       if (strcmp (usage_file, "/dev/null") != 0)
         {
           redirect = fopen (usage_file, "w");
-          chmod (usage_file, 0644);
+          chown (usage_file, profile.minuid, getgid());
+          chmod (usage_file, 0640);
           if (redirect == NULL)
-            error ("Couldn't open redirection file\n");
+            error ("Couldn't open usage file\n");
         }
+
+      /* stderr from user program is junk */
+      junk = fopen (error_file, "w");
+      if (junk == NULL)
+        error ("Couldn't open junk file %s\n", error_file);
+      if (strcmp (error_file, "/dev/null") != 0)
+        {
+          chown (error_file, profile.minuid, getgid());
+          chmod (error_file, 0640);
+        }
+
+      if (setgid (profile.minuid) < 0)
+        {
+          if (errno == EPERM)
+            {
+              error ("Couldn't setgid due to permission");
+            }
+          else
+            {
+              error (NULL);
+            }
+        }
+      if (setuid (profile.minuid) < 0)
+        {
+          if (errno == EPERM)
+            {
+              error ("Couldn't setuid due to permission");
+            }
+          else
+            {
+              error (NULL);
+            }
+        }
+
 
       if (getuid () == 0)
         error ("Not changing the uid to an unpriviledged one is a BAD ideia");
@@ -465,51 +440,56 @@ int main (int argc, char **argv, char **envp)
       if (alarm (profile.clock) != 0)
         error ("Couldn't set alarm");
 
+      /* Fork new process */
       pid = fork ();
       if (pid < 0)
         error (NULL);
+
       if (pid == 0)
+        /* Forked/child process */
         {
-          /* change to chroot dir */
-          if (0 != chdir(chroot_dir))
+          /* Chrooting */
+          if (chroot_dir != NULL)
             {
-              kill (getpid (), SIGPIPE);
-              error ("Cannot change to chroot dir");
+              if (0 != chdir(chroot_dir))
+                {
+                  kill (getpid (), SIGPIPE);
+                  error ("Can not change to chroot dir");
+                }
+              if (0 != chroot(chroot_dir))
+                {
+                  kill (getpid (), SIGPIPE);
+                  error ("Can not chroot");
+                }
+            }
+          /* Change dir */
+          if (run_dir != NULL)
+            {
+              if (0 != chdir(run_dir))
+                {
+                  kill (getpid (), SIGPIPE);
+                  error ("Cannot change to rundir");
+                }
             }
 
-          /* chroot to judge dir  */
-          if (0 != chroot(chroot_dir))
-            {
-              kill (getpid (), SIGPIPE);
-              error ("Cannot chroot");
-            }
-          /* change to run dir */
-          if (0 != chdir(run_dir))
-            {
-              kill (getpid (), SIGPIPE);
-              error ("Cannot change to rundir");
-            }
+          dup2(fileno(junk), fileno(stderr));
 
           if (setuid (profile.minuid) < 0)
             error (NULL);
 
+          /* Don't run as root */
           if (getuid () == 0)
-            error ("Not changing the uid to an unpriviledged one is a BAD ideia");
+            error ("Running as a root is not secure!");
 
-          /* set priority */
+          /* Set priority */
           if (0 != setpriority(PRIO_USER,profile.minuid,NICE_LEVEL))
             {
               kill (getpid (), SIGPIPE);
               error (NULL);
             }
 
-          /* Set Address space limit, 1 mbyte tolerancy (librarys also count!) */
-          /*setlimit (RLIMIT_AS, (1024 + limit->memory) * 1024); */
-          setlimit (RLIMIT_CORE, profile.core * 1024);
-          setlimit (RLIMIT_STACK, profile.stack * 1024);
-          setlimit (RLIMIT_FSIZE, profile.fsize * 1024);
-          setlimit (RLIMIT_NPROC, profile.nproc);
-          setlimit (RLIMIT_CPU, profile.cpu);
+          /* Set resource limits - memory, time etc */
+          setlimits(profile);
 
           /* Execute the program */
           if (execve (*p, p, envp) < 0)
@@ -519,35 +499,58 @@ int main (int argc, char **argv, char **envp)
             }
         }
       else
+        /* Parent process */
         {
           if (setuid (profile.minuid) < 0)
             error (NULL);
 
           if (getuid () == 0)
-            error ("Not changing the uid to an unpriviledged one is a BAD ideia");
+            error ("Running as a root is not secure!");
+
+          memusage_init ();
 
           mark = OK;
 
-          /* Poll at INTERVAL ms and determine the maximum *
-           * memory usage,  exit when the child terminates */
-
+          /* Poll every INTERVAL ms and get the maximum   *
+           * memory usage, exit when the child terminates */
           mem = 64;
+          skipped = 0;
+          memused = 0;
           do
             {
               msleep (INTERVAL);
-              mem = max (mem, memusage (pid));
+              memused = memusage (pid);
+              if (memused > -1)
+                {
+                  mem = max (mem, memused);
+                }
+              else
+                { /* Can not read memory usage! */
+                  skipped++;
+                }
+
+              if (skipped > 10)
+                { /* process is already finished or something wrong happened */
+                  terminate (pid);
+                  mark = MLE;
+                }
+
               if (mem > profile.memory)
                 {
                   terminate (pid);
                   mark = MLE;
                 }
+
               do
                 v = wait4 (pid, &status, WNOHANG | WUNTRACED, &usage);
+              //v = wait4 (pid, &status, WNOHANG | WUNTRACED | WCONTINUED | WEXITED, &usage);
               while ((v < 0) && (errno != EINTR));
               if (v < 0)
                 error (NULL);
             }
           while (v == 0);
+
+          memusage_close ();
 
           ttarget = time (NULL);
 
@@ -591,9 +594,9 @@ int main (int argc, char **argv, char **envp)
 
                   if (mark == TLE)
                     {
-                      /* Adjust the timings... although we know the child   *
-                       * was been killed just in the right time seing 1.990 *
-                       * as TLE when the limit is 2 seconds is anoying      */
+                      /* We know the child has terminated at right time(OS did). *
+                       * But seing 1.990 as TLE while limit 2.0 is confusing.    *
+                       * So here is small adjustment for presentation.           */
                       usage.ru_utime.tv_sec = profile.cpu;
                       usage.ru_utime.tv_usec = 0;
                       printstats ("Time Limit Exceeded\n");

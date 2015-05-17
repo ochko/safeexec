@@ -1,12 +1,15 @@
 #ifndef SAFEEXEC_H
 #define SAFEEXEC_H
 
+#include <sys/user.h>
+
 #define INFINITY 0xFFFFFFFF
 
 struct config
 {
   rlim_t cpu;
   rlim_t memory;
+  rlim_t aspace;
   rlim_t core;
   rlim_t stack;
   rlim_t fsize;
@@ -16,8 +19,5 @@ struct config
   uid_t minuid;
   uid_t maxuid;
 };
-
-void idset (int v, char *section, unsigned int value);
-int install (char *section);
 
 #endif
