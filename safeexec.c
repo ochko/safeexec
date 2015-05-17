@@ -369,18 +369,6 @@ int main (int argc, char **argv, char **envp)
     }
   else
     {
-
-        fprintf (stderr, "  cpu=%u\n  mem=%u\n", (unsigned int) profile.cpu,
-        (unsigned int) profile.memory);
-        fprintf (stderr, "  core=%u\n  stack=%u\n", (unsigned int) profile.core,
-        (unsigned int) profile.stack);
-        fprintf (stderr, "  fsize=%u\n  nproc=%u\n", (unsigned int) profile.fsize,
-        (unsigned int) profile.nproc);
-        fprintf (stderr, "  minuid=%u\n  maxuid=%u\n", (unsigned int) profile.minuid,
-        (unsigned int) profile.maxuid);
-        fprintf (stderr, "  clock=%u\n", (unsigned int) profile.clock);
-
-
       /* Get an unused uid */
       if (profile.minuid != profile.maxuid)
         {
