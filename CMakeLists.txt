@@ -83,7 +83,7 @@ add_test(return-code tests/driver.rb test-ret
          "cpu usage: ? seconds")
 
 add_test(wall-time-limit-exceeded tests/driver.rb test-wtle
-         "--clock 1"
+         "--clock 3"
          "Time Limit Exceeded"
          "elapsed time: >3 seconds"
          "memory usage: ? kbytes"

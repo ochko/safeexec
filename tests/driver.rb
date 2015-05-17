@@ -19,7 +19,7 @@ end
 out = File.join(File.dirname(__FILE__), 'usage.out')
 File.unlink(out) if File.exists?(out)
 params = arguments.shift
-system "#{safeexec} --usage #{out} --exec #{executable} #{params} > /dev/null"
+system "#{safeexec} #{params} --usage #{out} --exec #{executable}> /dev/null"
 usage = File.read(out).split("\n")
 
 arguments.each do |expr|
