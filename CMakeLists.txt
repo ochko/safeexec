@@ -68,6 +68,13 @@ add_test(file-write-attemp tests/driver.rb test-write
          "memory usage: ? kbytes"
          "cpu usage: ? seconds")
 
+add_test(file-read-attemp tests/driver.rb test-read
+         " "
+         "Command exited with non-zero status"
+         "elapsed time: ? seconds"
+         "memory usage: ? kbytes"
+         "cpu usage: ? seconds")
+
 add_test(return-code tests/driver.rb test-ret
          " "
          "Command exited with non-zero status"
