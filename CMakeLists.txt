@@ -60,7 +60,8 @@ add_test(fork-attemp tests/driver.rb test-fork
          "elapsed time: ? seconds"
          "memory usage: ? kbytes"
          "cpu usage: ? seconds")
-
+         
+add_test(file-write-prepare chmod 0644 tests/file.dat)
 add_test(file-write-attemp tests/driver.rb test-write
          " "
          "Command exited with non-zero status"
@@ -68,6 +69,7 @@ add_test(file-write-attemp tests/driver.rb test-write
          "memory usage: ? kbytes"
          "cpu usage: ? seconds")
 
+add_test(file-read-prepare chmod 0600 tests/secret.txt)
 add_test(file-read-attemp tests/driver.rb test-read
          " "
          "Command exited with non-zero status"
