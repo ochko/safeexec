@@ -87,11 +87,13 @@ Maximum number of open files is not limited because vm(java) or interpreted(ruby
 
 ### Chroot
 
-Chroot is powerful stuff: it makes a given directory (say, /jail)
-appear to be the root directory of the file system, as far as
-the child process can see. However, you need to install needed libraries into jail to run user programs properly.
-For example, a Python3 jail needs to include some unexpected things like /lib/libcrypt-2.5.so.
-You can use safeexec without chroot.
+From ubuntu's [BasicChroot](https://help.ubuntu.com/community/BasicChroot) page:
+
+> A chroot is basically a special directory on your computer which prevents applications, if run from inside that directory, from accessing files outside the directory.
+> In many ways, a chroot is like installing another operating system inside your existing operating system.
+> Technically-speaking, chroot temporarily changes the root directory (which is normally /) to the chroot directory (for example, /var/chroot). As the root directory is the top of the filesystem hierarchy, applications are unable to access directories higher up than the root directory, and so are isolated from the rest of the system. This prevents applications inside the chroot from interfering with files elsewhere on your computer.
+
+You can use safeexec without chroot if your OS doesn't allow arbitrary users to write filesystems.
 
 ## Build
 
@@ -141,7 +143,10 @@ Total Test time (real) =   9.48 sec
 
 ## Todo
 
-* Fix file read/write permissions on linux
+* Use getrusage for getting memory usage(becase this is same on both bsd and linux)
+* Fix file read/write permissions on linux when file owner is test runner and group permission is on:
+  - can read chmod 0640 file, but can't read 0620 file.
+  - can write chmod 0620 file, but can't write 0644 file.
 * Use [Getopt](http://www.gnu.org/software/libc/manual/html_node/Getopt.html) similar argument parsing library.
 
 ## Changelog

@@ -69,7 +69,7 @@ add_test(file-write-attemp tests/driver.rb test-write
          "memory usage: ? kbytes"
          "cpu usage: ? seconds")
 
-add_test(file-read-prepare chmod 0600 tests/secret.txt)
+add_test(file-read-prepare chmod 0620 tests/secret.txt)
 add_test(file-read-attemp tests/driver.rb test-read
          " "
          "Command exited with non-zero status"
