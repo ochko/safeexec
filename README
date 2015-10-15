@@ -81,6 +81,9 @@ Make sure that you set the file and memory limits big enough that
 your language can load. Python can give you all manner of strange 
 errors if it doesn't get enough memory. 
 
+Note: A user who had been utilizing proxmox containers/LXC reported
+that installing safeexec was not possible until they switched to a KVM.
+
 PARANOID DISCLAIMER
 
 You can get more fine-grained supervision if you ptrace, which
