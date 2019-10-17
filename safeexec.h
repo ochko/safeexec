@@ -2,6 +2,7 @@
 #define SAFEEXEC_H
 
 #include <sys/user.h>
+#include <sys/types.h>
 
 #define INFINITY 0xFFFFFFFF
 
