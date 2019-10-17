@@ -28,7 +28,9 @@
 #include "memusage.h"
 #include "setlimit.h"
 #include "safeexec.h"
-#include "setlimits.h"
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 700
+#endif
 #define SIGXFSZ         25      /* exceeded file size limit(Fix for FreeBSD)  */
 #define MAXMEM     8388608      /* recent version of Java need more memory    */
 #define INTERVAL        61      /* about 16 times a second                    */
