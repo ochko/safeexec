@@ -242,7 +242,7 @@ void setlimit (int resource, rlim_t n)
 /* Validate the config options, call error () on error */
 void validate (void) {
   unsigned int LARGECONST;
-  unsigned int HUGECONST;
+  unsigned long HUGECONST;
   LARGECONST = 4194304;
   HUGECONST = 41943040;
   if (profile.cpu == 0)
