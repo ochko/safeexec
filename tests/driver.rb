@@ -17,7 +17,7 @@ unless File.executable?(safeexec)
 end
 
 out = File.join(File.dirname(__FILE__), 'usage.out')
-File.unlink(out) if File.exists?(out)
+File.unlink(out) if File.exist?(out)
 params = arguments.shift
 system "#{safeexec} #{params} --usage #{out} --exec #{executable}> /dev/null"
 usage = File.read(out).split("\n")
